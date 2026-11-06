@@ -1,0 +1,976 @@
+// ============================================================================
+//  edit-v4 (29/10/2026): o formato "dossiê investigativo" (skill edit-investigativa, ref. TikTok @samuelszuchan) com a identidade
+//  do brand book 2026 da V4 Company (https://v4-company-brand-book-2026.vercel.app/, resumo em brand_v4.md).
+//  1ª parte do render/scenes.js (work/<prefixo>_a.js). Precisa do motor do Kit_Edicao_Vox_v2.
+//
+//  O que muda em relação à investigativa (o resto — cenários, câmera, ritmo, legenda de 1 palavra, baques — é igual):
+//   - FUNDO BRANCO da marca (pedido do Felipe, 29/10/2026): palco #FFFFFF -> #F2F2F2, parede/mapa/TV/documento claros; textos em
+//     VINHO #280000 (par aprovado sobre branco); a camada #v4tinta (lighten) ainda leva os pretos que sobrarem (vídeo, TV) para o vinho;
+//   - o vermelho é o Vermelho V4 #E50914; provas e prints em DUOTONE vinho -> #F2F2F2 (provas.py, pagina.py), com sombra suave;
+//   - tipografia de impacto em MORGANITE (no lugar da Times condensada); sans e legenda em IBM PLEX SANS;
+//   - sem aberração cromática (ciano/rosa não são da paleta) e brilho contido (nada de neon);
+//   - apresentador: tom vinho (não azul) + luz vermelha V4 de um lado;
+//   - logo só o OFICIAL (logoV4: a VERMELHA sobre o branco), reverberação do símbolo (reverbInv) e final fimV4Inv com o botão VERDE;
+//   - SAFE ZONE da Meta: tudo que importa entre y 420 e 1500 (o quadrado central 1080x1080).
+// ============================================================================
+const IV = { preto: '#E9E6E6', fundo: '#F2F2F2', branco: '#280000', texto: '#280000', claro: '#F2F2F2', verm: '#E50914', marca: '#E50914', fio: '#E50914',
+  papel: '#FFFFFF', cinza: '#6f6464', tinta: '#312D2D' };   // fundo BRANCO: IV.branco (nome herdado) = cor do TEXTO = vinho
+const V4 = '#E50914', V4_LUZ = '#FF481F', V4_E = '#650E0F', VINHO = '#280000', GRAFITE = '#312D2D', BRANCO = '#FFFFFF', CINZA_C = '#F2F2F2',
+  AMARELO = '#FFDD00', VERDE_CTA = '#0E8420';
+const SAFE = { y0: 420, y1: 1500, cy: 960, m0: 286, m1: 1636 };   // safe zone da Meta (criativo dinâmico 9:16 -> 4:5 -> 1:1)
+const SERIF = 'Morganite', SANS = 'Plex', IV_CX = 1, IV_PESO = 700;   // V4: a 'serifa condensada' do formato vira a Morganite (já condensada)
+const IV_BRILHO = {   // fundo branco: texto nítido, sem glow nem aberração cromática (neon = slop); 'escura' = legenda sobre vídeo/foto
+  branco: '0 1px 0 rgba(255,255,255,.6)',
+  verm: '0 2px 12px rgba(229,9,20,.16)',
+  legenda: '0 0 2px rgba(255,255,255,.95), 0 0 14px rgba(255,255,255,.85), 0 0 30px rgba(255,255,255,.6)',
+  doc: '0 0 2px rgba(255,255,255,.95), 0 0 16px rgba(255,255,255,.9), 0 0 36px rgba(255,255,255,.7)',
+  escura: '0 2px 7px rgba(0,0,0,.62), 0 0 20px rgba(0,0,0,.40)',
+};
+const IV_STOP = new Set(('a o as os um uma uns umas de do da dos das em no na nos nas num numa e que para pra por pelo pela ' +
+  'pelos pelas com sem se ao aos ja so mas ou nem me te lhe eu ele ela eles elas voce isso esse essa este esta isto foi vai ser sao ' +
+  'tem ha ate mais muito como quando onde quem qual meu minha seu sua la ca ai tao tambem nao the of and in on at to').split(' '));
+const IV_GRANDEZA = new Set('mil milhao milhoes bilhao bilhoes trilhao trilhoes reais real dolares dolar euros yuan por cento anos dias horas km quilometros'.split(' '));
+const IV_MESES = new Set('janeiro fevereiro marco abril maio junho julho agosto setembro outubro novembro dezembro'.split(' '));
+// grupos forçados na legenda (texto normalizado, palavras separadas por espaço): IV_UNE.add('bolsa familia')
+const IV_UNE = new Set();
+
+// ---------- medidas e serifa condensada ----------
+const _ivC = document.createElement('canvas').getContext('2d');
+function ivLarg(txt, px, fam = SERIF, peso = 400, ls = 0) { _ivC.font = `${peso} ${px}px ${fam}`; return _ivC.measureText(txt).width + ls * px * txt.length; }
+// palavra em serifa condensada: o span tem a largura já condensada; o texto dentro é espremido (scaleX .86)
+function ivSerifSpan(p, txt, px, css = '', letras = false) {
+  const ls = .004, w = ivLarg(txt, px, SERIF, IV_PESO, ls) * IV_CX;
+  const s = el(p, 'span', `display:inline-block;width:${w.toFixed(1)}px;white-space:nowrap;vertical-align:baseline;${css}`);
+  const inn = el(s, 'span', `display:inline-block;transform:scaleX(${IV_CX});transform-origin:0 50%;font-family:${SERIF};font-weight:${IV_PESO};font-size:${px}px;letter-spacing:${ls}em;line-height:1;`);
+  if (letras) s.letras = [...txt].map(ch => el(inn, 'span', 'display:inline-block;', ch === ' ' ? '&nbsp;' : esc(ch)));
+  else inn.textContent = txt;
+  s.inn = inn; s.larg = w;
+  return s;
+}
+
+// legenda (V4): UMA palavra em IBM Plex Sans semibold, #F2F2F2
+function ivCapSpan(p, txt, px) {
+  const s = el(p, 'span', `display:inline-block;white-space:nowrap;font-family:${SANS};font-weight:600;font-size:${px}px;letter-spacing:-.012em;line-height:1;`, esc(txt));
+  s.larg = ivLarg(txt, px, SANS, 600); return s;
+}
+// camada vinho: levanta os pretos do quadro inteiro para o #280000 da marca (lighten), por cima da vinheta e abaixo da legenda
+{ const st = document.getElementById('stage'), vg = document.getElementById('vig');
+  if (st && !document.getElementById('v4tinta')) { const d = document.createElement('div'); d.id = 'v4tinta'; if (vg) vg.after(d); else st.appendChild(d); } }
+
+// ---------- grão e vinheta por cena (S.grao 0..1, S.vig 0..1), como no edit-papel ----------
+let _ivGrao = null;
+function ivGraoTex() {
+  if (_ivGrao) return _ivGrao;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d'), im = x.createImageData(256, 256);
+  for (let i = 0; i < im.data.length; i += 4) { const v = 128 + (Math.random() - .5) * 90; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+  x.putImageData(im, 0, 0);
+  const c2 = document.createElement('canvas'); c2.width = c2.height = 256;                 // grão fino mas não "sal e pimenta"
+  const x2 = c2.getContext('2d'); x2.filter = 'blur(0.45px)'; x2.drawImage(c, 0, 0);
+  return (_ivGrao = c2.toDataURL());
+}
+
+// ---------- legenda: UMA palavra por vez (número + grandeza, data e nome próprio ficam juntos) ----------
+let IV_BLOCOS = null;
+function ivBlocos() {
+  if (IV_BLOCOS) return IV_BLOCOS;
+  const all = [];
+  TIMING.beats.forEach(b => b.words.forEach(w => all.push(w)));
+  const n = w => norm(w.w), cap = w => /^[A-ZÁÉÍÓÚÂÊÔÃÕÇ]/.test(w.w), fimFrase = w => /[.;:?!]$/.test(w.w);
+  const L = [];
+  for (let i = 0; i < all.length;) {
+    const g = [all[i]]; let j = i + 1;
+    const une = () => { g.push(all[j]); j++; };
+    // grupos forçados
+    for (let k = 4; k >= 2; k--) if (j - 1 + k <= all.length && IV_UNE.has(all.slice(i, i + k).map(n).join(' '))) { while (g.length < k) une(); break; }
+    if (g.length === 1) {
+      const w = all[i];
+      if (/\d/.test(w.w) && !fimFrase(w)) {                       // 3 bilhões · 80% · 20 de dezembro de 2021 · R$ 15
+        if (all[j] && /^(de|do)$/i.test(all[j].w) && all[j + 1] && IV_MESES.has(n(all[j + 1]))) {
+          une(); une(); if (all[j] && /^de$/i.test(all[j].w) && all[j + 1] && /^\d{4}/.test(all[j + 1].w)) { une(); une(); }
+        }
+        while (all[j] && g.length < 3 && !fimFrase(g[g.length - 1]) && !/,$/.test(g[g.length - 1].w) && IV_GRANDEZA.has(n(all[j]))) une();
+        if (g.length > 1 && !fimFrase(g[g.length - 1]) && all[j] && /^de$/i.test(all[j].w) && all[j + 1] && /^(reais|dolares|euros)/.test(n(all[j + 1]))) { une(); une(); }
+      } else if (/^R\$|^US\$|^\$/.test(w.w) && all[j] && /\d/.test(all[j].w)) {
+        une(); while (all[j] && g.length < 3 && !fimFrase(g[g.length - 1]) && IV_GRANDEZA.has(n(all[j]))) une();
+      } else if (cap(w) && !IV_STOP.has(n(w)) && !fimFrase(w) && !/,$/.test(w.w)) {   // nome próprio composto
+        while (all[j] && g.length < 3 && cap(all[j]) && !IV_STOP.has(n(all[j])) && !fimFrase(g[g.length - 1]) && !/,$/.test(g[g.length - 1].w)) une();
+      }
+    }
+    L.push({ words: g }); i = j;
+  }
+  const cortes = SCENES.map(x => x.t0).filter(t => t > 0);
+  L.forEach(c => { c.s = c.words[0].s - .02; });
+  L.forEach((c, i) => {
+    const nx = L[i + 1], fim = c.words[c.words.length - 1].e, ult = c.words[c.words.length - 1].s;
+    const ct = cortes.find(t => t > ult + .05);
+    c.e = Math.min(nx ? nx.s : fim + .7, fim + .6, ct ?? 1e9);
+  });
+  return (IV_BLOCOS = L);
+}
+let _ivKey = '';
+renderCaptions = function (t) {
+  const box = $('cap'), S = (window.CUR_SCENE && CUR_SCENE.S) || {};
+  const cfg = typeof S.cap === 'function' ? S.cap(t - CUR_SCENE.t0) : (S.cap || { modo: 'palavra' });
+  const gr = $('grain'), vg = $('vig');
+  if (gr) { if (!gr._ok) { gr.style.backgroundImage = `url(${ivGraoTex()})`; gr._ok = 1; } gr.style.opacity = (S.grao ?? .2).toFixed(3); }
+  if (vg) vg.style.opacity = (S.vig ?? .5).toFixed(3);
+  if (cfg.modo === 'none') { box.style.opacity = 0; return; }
+  const L = ivBlocos();
+  let idx = -1;
+  for (let i = 0; i < L.length; i++) if (t >= L[i].s && t < L[i].e) { idx = i; break; }
+  if (idx < 0) { box.style.opacity = 0; return; }
+  const fs = cfg.s ?? 62, txt = L[idx].words.map(w => w.w).join(' ');
+  const key = `${idx}|${fs}|${cfg.cor || ''}|${cfg.doc ? 1 : 0}|${S.capClara ? 1 : 0}`;
+  if (key !== _ivKey) {
+    _ivKey = key;
+    box.className = 'iv-cap';
+    box.style.cssText = `position:absolute;z-index:5;opacity:0;background:none;box-shadow:none;padding:0;white-space:nowrap;line-height:1;` +
+      `color:${cfg.cor || (S.capClara ? IV.claro : IV.texto)};text-shadow:${S.capClara ? IV_BRILHO.escura : cfg.doc ? IV_BRILHO.doc : IV_BRILHO.legenda};`;
+    box.innerHTML = '';
+    box._sp = ivCapSpan(box, txt, fs);
+  }
+  const q = E.out(clamp((t - L[idx].s) / .12));
+  box.style.opacity = q.toFixed(3);
+  box.style.filter = q < .98 ? `blur(${((1 - q) * 5).toFixed(1)}px)` : '';
+  box.style.left = `${cfg.x ?? 540}px`; box.style.top = `${cfg.y ?? 1371}px`;
+  box.style.transform = `translate(-50%,-50%) scale(${(1.04 - .04 * q).toFixed(4)})`;
+};
+
+// ---------- câmera ----------
+// camOlha([[t, {x, y, z, r}], ...]) — a câmera OLHA para o ponto (x, y) do mundo da cena, com zoom z (1 = tamanho real) e giro r.
+// Chaves sem uma propriedade herdam a anterior. Use em scene({camMove: camOlha(...)}) ou pela opção cam das cenas prontas.
+function ivChaves(keys, padrao) {
+  let prev = { ...padrao };
+  return keys.map(([t, q]) => { prev = { ...prev, ...q }; return [t, { ...prev }]; });
+}
+// Curva da referência: a câmera ARRANCA logo no começo de cada trecho (~80% do caminho no 1º quarto) e chega ainda andando
+// (12% de velocidade residual), então nunca para entre as chaves. Por chave, 3º item: 'suave' (E.inOut) ou 'linear'.
+const IV_ARRANQUE = u => .88 * (1 - Math.pow(1 - u, 3.2)) + .12 * u;
+const IV_CURVAS = { arranque: IV_ARRANQUE, suave: E.inOut, linear: E.lin };
+// ivKf(keys, padrao) -> lt => {x, y, z|d, r}; com 'z' (ou 'd') soma uma DERIVA lenta (zoom +1%/s, ou aproxima 0,8%/s) que segue até
+// 4 s depois da última chave: a câmera nunca fica parada.
+// ENTRADA (padrão em toda cena): a referência faz ~todo o zoom do plano logo depois do corte. A câmera começa 16% mais aberta
+// (mural: mais longe) e chega à 1ª chave em ~0,55 s. window.IV_ENTRADA muda a força; 1ª chave com 3º item 'fixa' desliga.
+function ivEntrada(keys, padrao) {
+  const e = window.IV_ENTRADA ?? .16;
+  if (!e || !keys.length || keys[0][2] === 'fixa' || keys[0][0] > .05) return keys;
+  const q0 = { ...padrao, ...keys[0][1] }, ini = { ...q0 };
+  if ('z' in padrao) ini.z = q0.z / (1 + e);
+  if ('d' in padrao) ini.d = q0.d * (1 + e * 1.6);
+  const t1 = Math.min(.55, keys.length > 1 ? keys[1][0] * .5 : .55);
+  return [[0, ini], [t1, keys[0][1], 'arranque'], ...keys.slice(1)];
+}
+function ivKf(keys, padrao) {
+  keys = ivEntrada(keys, padrao);
+  const K = ivChaves(keys, padrao), ks = Object.keys(padrao);
+  const curva = keys.map(k => IV_CURVAS[k[2]] || IV_ARRANQUE), tFim = keys[keys.length - 1][0] + 4;
+  return lt => {
+    const o = {};
+    ks.forEach(k => { o[k] = kf(lt, K.map(([t, q], i) => [t, q[k], curva[i]]), IV_ARRANQUE); });
+    const td = Math.min(Math.max(0, lt), tFim);
+    if ('z' in o) o.z *= 1 + .01 * td;
+    if ('d' in o) o.d *= 1 - .008 * td;
+    return o;
+  };
+}
+const camOlha = keys => {
+  const f = ivKf(keys, { x: 540, y: 960, z: 1, r: 0 });
+  return (lt, c) => { const v = f(lt); return { s: v.z, x: -v.z * (v.x - 540), y: -v.z * (v.y - 960), r: v.r }; };
+};
+// ---------- borrão de movimento (a referência perde ~40% da nitidez quando a câmera corre; o render do navegador não) ----------
+// ivBorrao(el, S, vx, vy, vb): vx, vy = px/quadro do centro da tela; vb = px/quadro na borda por zoom/giro. Filtro SVG anisotrópico
+// (borra mais na direção do movimento); S._filtroExtra entra junto (ex.: desfoque de foco). window.IV_BORRAO = força (padrão .4).
+let _ivMB = 0;
+function ivBorrao(el_, S, vx, vy, vb = 0) {
+  if (!S._mbG) {
+    const id = 'ivmb' + (_ivMB++), s_ = sv(document.body, 'svg', { width: 0, height: 0, style: 'position:absolute' });
+    const f = sv(sv(s_, 'defs'), 'filter', { id, x: '-5%', y: '-5%', width: '110%', height: '110%', 'color-interpolation-filters': 'sRGB' });
+    S._mbG = sv(f, 'feGaussianBlur', { stdDeviation: '0 0' }); S._mbId = id;
+  }
+  const k = window.IV_BORRAO ?? .4, sx = Math.min(18, Math.abs(vx) * k + vb * k * .5), sy = Math.min(18, Math.abs(vy) * k + vb * k * .5);
+  const extra = S._filtroExtra || '';
+  if (sx < .6 && sy < .6) { el_.style.filter = extra; return; }
+  S._mbG.setAttribute('stdDeviation', `${sx.toFixed(2)} ${sy.toFixed(2)}`);
+  el_.style.filter = `${extra} url(#${S._mbId})`.trim();
+}
+// toda cena com câmera própria (camMove) ganha o borrão automaticamente; cenas com câmera interna (mural, documento, site)
+// marcam S._mbProprio e chamam ivBorrao no update
+const _ivSceneKit = scene;
+scene = function (def) {
+  const up = def.update;
+  def.update = function (S, c) {
+    if (up) up.call(this, S, c);
+    if (S._mbProprio || !def.camMove || def.camMove === camStill || !def.cam) return;
+    const a = def.camMove(c.lt, c), b = def.camMove(Math.max(0, c.lt - 1 / 30), c);
+    ivBorrao(def.cam, S, a.x - b.x, a.y - b.y, Math.abs(a.s - b.s) * 600 + Math.abs((a.r || 0) - (b.r || 0)) * Math.PI / 180 * 600);
+  };
+  _ivSceneKit(def);
+};
+// câmera por função do contexto (para usar c.w nas chaves): camC(c => [[0, {...}], [c.w('B12','casa'), {...}]])
+const camC = fn => { let f = null; return (lt, c) => (f = f || camOlha(fn(c)))(lt, c); };
+
+// ---------- entradas ----------
+// entra(e, lt, t, {k: 'foco'|'cresce'|'sobe'|'desce'|'lado'|'brota', d, dx, dy, out}) — mesma família do edit-papel
+function entra(e, lt, t, op = {}) {
+  const k = op.k ?? 'foco', d = op.d ?? .35;
+  if (lt < t) { e.style.opacity = 0; return 0; }
+  const u = clamp((lt - t) / d), q = E.out5(u);
+  let x = 0, y = 0, s = 1, b = 0;
+  if (k === 'foco') { s = lerp(1.06, 1, q); b = (1 - q) * 16; }
+  else if (k === 'cresce') { s = lerp(.62, 1, q); b = (1 - q) * 12; }
+  else if (k === 'brota') { s = lerp(0, 1, E.back(u)); }
+  else if (k === 'sobe') { y = (op.dy ?? 260) * (1 - q); b = Math.sin(Math.PI * Math.min(u, 1)) * 12; }
+  else if (k === 'desce') { y = -(op.dy ?? 260) * (1 - q); b = Math.sin(Math.PI * Math.min(u, 1)) * 12; }
+  else if (k === 'lado') { x = (op.dx ?? 520) * (1 - q); b = (1 - q) * 22; }
+  const out = op.out !== undefined && lt > op.out ? clamp((lt - op.out) / (op.od ?? .22)) : 0;
+  const deriva = op.deriva ?? .02;
+  tx(e, { x: x + (op.x ?? 0), y: y + (op.y ?? 0), s: s * (op.s ?? 1) * (1 + deriva * clamp((lt - t - d) / 3)), o: Math.min(clamp(u * 2.2), 1 - out) });
+  const bb = b + out * 14;
+  e.style.filter = (bb > .3 ? `blur(${bb.toFixed(1)}px) ` : '') + (e._filtro || '');
+  return u;
+}
+
+// ---------- apresentador ----------
+// presInv(['B13','B14'], {z0: 1.42 (punch-out de entrada), empurra: .06, passos: c => [[t, zoom]], luz: 'dir'|'esq'|false,
+//                         forca: .55 (luz vermelha), frio: .5 (tom frio), fy: .40, capY: 1371, build(L,S,c), update(S,c)})
+// Entra fechado e desfocado (~1,4x) e abre em 0,45 s para o plano médio; depois empurra devagar. A cor do vídeo é a do
+// apresentador: pele e camisa frias, luz vermelha de um lado, topo escuro. É a ÚNICA cena colorida do formato.
+function presInv(beats, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', presenter: true, camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      S.ph = photo(r, -60, -40, 1200, 2000, { border: 0, tape: false, fy: o.fy ?? .40 });
+      S.photos.push(S.ph);
+      S.capClara = true;   // V4 fundo branco: sobre o vídeo a legenda volta a ser clara
+      S.filtro = `saturate(${o.sat ?? .8}) contrast(1.1) brightness(.93)`;
+      S.ph.img.style.filter = S.filtro;
+      el(r, 'div', `position:absolute;inset:0;background:${VINHO};mix-blend-mode:soft-light;opacity:${o.frio ?? .35};`);   // V4: tom vinho (era azul frio)
+      const lado = o.luz ?? 'dir';
+      if (lado) {
+        const px = lado === 'esq' ? '0%' : '100%';
+        el(r, 'div', `position:absolute;inset:0;background:radial-gradient(ellipse 62% 72% at ${px} 58%, rgba(229,9,20,.95) 0%, rgba(229,9,20,.35) 38%, rgba(229,9,20,0) 72%);` +
+          `mix-blend-mode:screen;opacity:${(o.forca ?? .55) * .55};`);
+        el(r, 'div', `position:absolute;inset:0;background:radial-gradient(ellipse 58% 70% at ${px} 58%, rgba(255,72,31,.9) 0%, rgba(255,72,31,0) 66%);` +
+          `mix-blend-mode:overlay;opacity:${o.forca ?? .55};`);
+      }
+      el(r, 'div', 'position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.5) 0%,rgba(0,0,0,0) 26%,rgba(0,0,0,0) 78%,rgba(0,0,0,.35) 100%);');
+      // passos = níveis de zoom ao longo do plano (a referência muda o zoom ~a cada 1,5–2 s: 1,0 -> 1,15 -> 1,05 ...).
+      // Padrão: um nível novo em cada beat depois do 1º (e no meio de beat > 2,6 s), alternando fechar/abrir; passos: false desliga.
+      let ps = o.passos === false ? [] : o.passos ? o.passos(c) : null;
+      if (!ps) {
+        ps = []; const nv = o.niveis || [1.12, 1.04, 1.15, 1.06, 1.13, 1.03];
+        beats.forEach((id, i) => {
+          const t0 = c.b(id), d = c.e(id) - c.b(id);
+          if (i > 0) ps.push(t0 - .03);
+          if (d > 2.6) { const ws = BYID[id].words; ps.push(ws[Math.floor(ws.length / 2)].s - c.t0 - .03); }
+        });
+        ps = ps.filter(t => t > .7).map((t, i) => [t, nv[i % nv.length]]);
+      }
+      S.passos = ps;
+      S.zoom = lt => {
+        const q = E.out5(clamp(lt / (o.dEntra ?? .45)));
+        let nivel = 1;
+        ps.forEach(([t, zz]) => { nivel = lerp(nivel, zz, IV_ARRANQUE(clamp((lt - t) / .5))); });
+        return lerp(o.z0 ?? 1.42, 1, q) * nivel * (1 + (o.empurra ?? .06) * E.inOut(clamp(lt / Math.max(1, c.dur))));
+      };
+      S.ph.zoomFn = lt => S.zoom(lt);
+      S.cap = { modo: 'palavra', y: o.capY ?? 1371 };
+      S.vig = o.vig ?? .6; S.grao = o.grao ?? .16;
+      const L = S.L = el(r.parentNode, 'div', 'position:absolute;inset:0;z-index:3;pointer-events:none;');
+      if (o.build) o.build(L, S, c);
+    },
+    update(S, c) {
+      const lt = c.lt, q = E.out5(clamp(lt / (o.dEntra ?? .45)));
+      const vz = Math.abs(S.zoom(lt) - S.zoom(Math.max(0, lt - 1 / 30))) * 700;          // borrão do salto de zoom
+      S.ph.img.style.filter = S.filtro + (q < .97 ? ` blur(${((1 - q) * 7).toFixed(1)}px)` : (vz > 1.5 ? ` blur(${Math.min(5, vz * .3).toFixed(1)}px)` : ''));
+      if (o.mao !== false) S.ph.fr.style.transform = `translate(${(5 * Math.sin(lt * 1.1 + 1) + 2.5 * Math.sin(lt * 2.6)).toFixed(1)}px,` +
+        `${(4 * Math.sin(lt * 1.37 + 2) + 2 * Math.sin(lt * 3.1)).toFixed(1)}px) rotate(${(.25 * Math.sin(lt * .9)).toFixed(3)}deg)`;
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- palco BRANCO (tipografia, recortes) — V4: era escuro na investigativa ----------
+// palco(r, S, {brilho: [x, y] (brilho vermelho ambiente, em px da tela) | false, cap: {modo:'none'}}) — o fundo fica PARADO
+// (fora da câmera); o que vai em r anda com ela.
+function palco(r, S, o = {}) {
+  const f = document.createElement('div');
+  r.parentNode.insertBefore(f, r);
+  const br = o.brilho === false ? '' : `radial-gradient(circle at ${(o.brilho || [760, 520])[0]}px ${(o.brilho || [760, 520])[1]}px, rgba(229,9,20,.045) 0%, rgba(229,9,20,0) 34%),`;
+  f.style.cssText = `position:absolute;inset:0;background:${br}radial-gradient(ellipse 72% 56% at 50% 46%, #FFFFFF 0%, #F7F6F6 55%, #ECE9E9 100%);`;
+  if (S) { S.grao = o.grao ?? .1; S.vig = o.vig ?? .35; S.cap = o.cap ?? { modo: 'none' }; }
+  return f;
+}
+// estilos de texto (tamanho em px a 1080 de largura). "Serifa" = Morganite Bold (V4: títulos de impacto); sans = IBM Plex Sans.
+const IV_EST = {   // V4: Morganite é mais estreita que a Times condensada -> corpos 25% maiores
+  V: { f: 'serif', s: 250, cor: IV.verm, br: 'verm' },        // chave vermelha enorme ("350", "lowest")
+  v: { f: 'serif', s: 165, cor: IV.verm, br: 'verm' },        // chave vermelha ("worked from", "Huang")
+  S: { f: 'serif', s: 250, cor: IV.branco, br: 'branco' },    // serifa branca enorme
+  s: { f: 'serif', s: 165, cor: IV.branco, br: 'branco' },    // serifa branca ("Wei,", "one-person", nome no mapa)
+  a: { f: 'sans', p: 400, s: 54, cor: IV.branco, br: 'branco' },   // ligação pequena ("8 at", "salary rate in China is")
+  A: { f: 'sans', p: 600, s: 58, cor: IV.branco, br: 'branco' },   // ligação forte ("night", "viewers")
+  r: { f: 'sans', p: 500, s: 54, cor: IV.verm, br: 'verm' },       // sans vermelha pequena ("companies on")
+  n: { f: 'sans', p: 500, s: 48, cor: IV.branco, br: 'branco' },   // nome ao lado da foto
+};
+// linha(p, [['The','a'], ['lowest','V', {s: 230}], ['Viya.','a', {marca: true}]], x, y, {alinha:'esq'|'centro'|'dir', k:1, letras:false})
+//   -> g; g.at(lt, [t1, t2, ...] | t, {d, blur, letras, out}) revela cada parte (desfocada -> nítida) no tempo da palavra;
+//   g.marca(i, lt, t) acende o fundo vermelho da parte i; g.caixa() = {x0, x1, y0, y1} na cena. y = linha de base.
+function linha(p, partes, x, y, o = {}) {
+  const al = o.alinha ?? 'esq', k = o.k ?? 1;
+  const g = el(p, 'div', `position:absolute;left:${x}px;top:${y}px;white-space:nowrap;line-height:1;`);
+  g.ws = partes.map(([txt, st, op = {}], i) => {
+    const E_ = IV_EST[st] || IV_EST.a, px = (op.s ?? E_.s) * k, cor = op.cor ?? E_.cor;
+    const gap = i < partes.length - 1 ? `margin-right:${(op.esp ?? (E_.f === 'serif' ? .2 : .26)).toFixed(2)}em;` : '';
+    let sp;
+    if (E_.f === 'serif') { sp = ivSerifSpan(g, txt, px, `color:${cor};text-shadow:${IV_BRILHO[E_.br]};font-size:${px}px;${gap}opacity:0;`, o.letras || op.letras); }
+    else {
+      sp = el(g, 'span', `display:inline-block;vertical-align:baseline;font-family:${SANS};font-weight:${op.p ?? E_.p};font-size:${px}px;letter-spacing:-.025em;` +
+        `color:${cor};text-shadow:${IV_BRILHO[E_.br]};${gap}opacity:0;`);
+      if (o.letras || op.letras) sp.letras = [...txt].map(ch => el(sp, 'span', 'display:inline-block;', ch === ' ' ? '&nbsp;' : esc(ch)));
+      else sp.textContent = txt;
+    }
+    if (op.marca) { sp.style.padding = '0 .12em'; sp.style.background = `linear-gradient(${IV.verm},${IV.verm}) no-repeat 0 55%/0% 86%`; sp._marca = true; }
+    return sp;
+  });
+  const W_ = g.scrollWidth, H_ = g.offsetHeight;
+  const dx = al === 'esq' ? 0 : al === 'dir' ? -W_ : -W_ / 2;
+  g._base = `translate(${dx.toFixed(1)}px,${(-H_ * .78).toFixed(1)}px)`;
+  g.style.transform = g._base;
+  g.caixa = () => ({ x0: x + dx, x1: x + dx + W_, y0: y - H_ * .78, y1: y + H_ * .22 });
+  g.at = (lt, ts, op = {}) => g.ws.forEach((sp, i) => {
+    const t = Array.isArray(ts) ? ts[Math.min(i, ts.length - 1)] : ts + i * (op.passo ?? .12);
+    if (t === null || t === undefined) return;
+    const d = op.d ?? .26, out = op.out !== undefined ? clamp((lt - op.out) / .25) : 0;
+    if (sp.letras) {
+      sp.style.opacity = lt >= t - .01 ? (1 - out).toFixed(3) : 0;
+      sp.letras.forEach((L_, j) => {
+        const tj = t + hrand(j * 7.3 + i * 3.1 + x * .01) * (op.espalha ?? .3), q = E.out(clamp((lt - tj) / .16));
+        L_.style.opacity = q.toFixed(3); L_.style.filter = q < .98 ? `blur(${((1 - q) * 9).toFixed(1)}px)` : '';
+      });
+      return;
+    }
+    const q = E.out(clamp((lt - t) / d)), b = (1 - q) * (op.blur ?? 14) + out * 12;
+    sp.style.opacity = (q * (1 - out)).toFixed(3);
+    sp.style.filter = b > .3 ? `blur(${b.toFixed(1)}px)` : '';
+    sp.style.transform = q < 1 ? `scale(${(1.05 - .05 * q).toFixed(4)})` : '';
+  });
+  g.marca = (i, lt, t, d = .22) => { const sp = g.ws[i]; if (sp && sp._marca) sp.style.backgroundSize = `${(E.out(clamp((lt - t) / d)) * 100).toFixed(1)}% 86%`; };
+  return g;
+}
+// texto falado: linhaFala(p, c, 'B12', 'a a|V', x, y, o) — as palavras do beat, na ordem, com um estilo cada ('-' pula uma palavra,
+// 'Vx2' junta 2 palavras num estilo, '|' = nova linha com o.entre px abaixo); g.at(lt) já usa os tempos da fala.
+function linhaFala(p, c, beat, spec, x, y, o = {}) {
+  const ids = o.junta || [beat];
+  const ws = ids.flatMap(id => BYID[id].words).slice(o.de ?? 0);
+  const linhas = [], ts = [];
+  let i = 0;
+  spec.split('|').forEach(ln => {
+    const L_ = [], T_ = [];
+    ln.trim().split(/\s+/).forEach(tok => {
+      if (!tok) return;
+      if (tok === '-') { i++; return; }
+      const m = tok.match(/^([a-zA-Z])x(\d+)$/), n = m ? +m[2] : 1, st = m ? m[1] : tok;
+      const grupo = ws.slice(i, i + n);
+      if (!grupo.length) return;
+      L_.push([grupo.map(w => w.w).join(' ').replace(/[,;:]$/, ''), st]);
+      T_.push(grupo[0].s - c.t0 - .03);
+      i += n;
+    });
+    if (L_.length) { linhas.push(L_); ts.push(T_); }
+  });
+  const al = o.alinha ?? 'esq', gs = linhas.map((L_, j) => linha(p, L_, x, y + j * (o.entre ?? 150), { ...o, alinha: al }));
+  const g = { gs, ts };
+  g.at = (lt, op = {}) => gs.forEach((gg, j) => gg.at(lt, ts[j].map(t => t - (op.adianta ?? 0)), op));
+  return g;
+}
+// tracejado(svg, 'M.. Q..', {c, w, dash, gap, brilho}) -> path com .draw(q) (desenha do começo ao fim, mantendo os traços)
+function tracejado(svg, d, o = {}) {
+  const cor = o.c ?? 'rgba(232,231,234,.85)';
+  const p = sv(svg, 'path', { d, fill: 'none', stroke: cor, 'stroke-width': o.w ?? 2.6, 'stroke-linecap': 'round' });
+  if (o.brilho !== false) p.style.filter = `drop-shadow(0 0 5px ${o.sombra ?? (cor.includes('228') || cor === IV.verm ? 'rgba(229,9,20,.7)' : 'rgba(255,255,255,.45)')})`;
+  const L = p.getTotalLength(), dash = o.dash ?? 10, gap = o.gap ?? 9;
+  p.draw = q => {
+    q = clamp(q);
+    const n = Math.floor(q * L / (dash + gap)), resto = q * L - n * (dash + gap), arr = [];
+    for (let i = 0; i < n; i++) arr.push(dash, gap);
+    arr.push(Math.max(.01, Math.min(dash, resto)), L + 20);
+    p.setAttribute('stroke-dasharray', arr.join(' '));
+    p.style.visibility = q > .002 ? 'visible' : 'hidden';
+  };
+  p.draw(0);
+  return p;
+}
+// caminhos prontos: reta(x0,y0,x1,y1) · curva(x0,y0,x1,y1, k=.3) (curva para a esquerda do sentido; k negativo = para a direita)
+const reta = (x0, y0, x1, y1) => `M${x0},${y0} L${x1},${y1}`;
+function curva(x0, y0, x1, y1, k = .3) {
+  const mx = (x0 + x1) / 2, my = (y0 + y1) / 2, dx = x1 - x0, dy = y1 - y0;
+  return `M${x0},${y0} Q${(mx - dy * k).toFixed(1)},${(my + dx * k).toFixed(1)} ${x1},${y1}`;
+}
+// número vermelho que conta (0% -> 3%): contador(p, x, y, {de: 0, para: 3, casas: 0, pre: '', suf: '%', s: 300, alinha})
+//   -> g.at(lt, t, d=.9): conta com borrão vertical; o último quadro fica no valor exato
+function contador(p, x, y, o = {}) {
+  const px = o.s ?? 300, al = o.alinha ?? 'centro';
+  const g = el(p, 'div', `position:absolute;left:${x}px;top:${y}px;white-space:nowrap;color:${o.cor ?? IV.verm};text-shadow:${IV_BRILHO.verm};opacity:0;`);
+  const fmt = v => (o.pre ?? '') + v.toFixed(o.casas ?? 0).replace('.', o.virgula === false ? '.' : ',') + (o.suf ?? '%');
+  let ult = '';
+  const pinta = s => { if (s === ult) return; ult = s; g.innerHTML = ''; g.sp = ivSerifSpan(g, s, px); };
+  pinta(fmt(o.para ?? 3));
+  const W_ = g.scrollWidth;
+  g._dx = al === 'esq' ? 0 : al === 'dir' ? -W_ : -W_ / 2;
+  g.at = (lt, t, d = .9) => {
+    if (lt < t) { g.style.opacity = 0; return; }
+    const u = clamp((lt - t) / d), v = lerp(o.de ?? 0, o.para ?? 3, E.out(u));
+    pinta(fmt(u >= 1 ? (o.para ?? 3) : (o.casas ? v : Math.floor(v + 1e-6))));
+    g.style.opacity = E.out(clamp((lt - t) / .15)).toFixed(3);
+    const vel = u < 1 ? Math.sin(Math.PI * u) * 6 : 0;
+    g.style.transform = `translate(${g._dx.toFixed(1)}px,-78%)`;
+    g.style.filter = vel > .4 ? `blur(${(vel * .5).toFixed(1)}px)` : '';
+  };
+  return g;
+}
+// tarja preta nos olhos: tarja(p, x, y, w, h) -> g.at(lt, t0, t1) (visível entre t0 e t1; sai de corte, como na referência)
+function tarja(p, x, y, w, h, o = {}) {
+  const g = el(p, 'div', `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;background:${o.c ?? VINHO};`);
+  g.at = (lt, t0 = -1, t1 = 1e9) => { g.style.opacity = lt >= t0 && lt < t1 ? 1 : 0; };
+  return g;
+}
+
+// ---------- pessoas recortadas (P&B em retícula; provas.py modo pessoa -> p_<nome>.png) ----------
+// recorte(p, 'p_nome', cx, cy, w, {tarja: true (olhos de OLHOS[nome], do provas.py) | [fx0, fy0, fx1, fy1], funde: true})
+//   -> e; e.at(lt, t, {k:'sobe'|'lado'|'foco', ...}) entra; e.tira(lt, t) tira a tarja no tempo t (a revelação do nome)
+function recorte(p, nome, cx, cy, w, o = {}) {
+  const a = AS(nome);
+  if (!a) throw new Error(`asset ${nome} não existe (rode provas.py e make_assets.py)`);
+  const h = w * a.h / a.w;
+  const e = box(p, cx, cy, w, h, 'opacity:0;');
+  const mk = o.funde === false ? '' : `-webkit-mask-image:linear-gradient(180deg,#000 ${o.fundeDe ?? 64}%,rgba(0,0,0,0) 98%);mask-image:linear-gradient(180deg,#000 ${o.fundeDe ?? 64}%,rgba(0,0,0,0) 98%);`;
+  e.img = el(e, 'img', `position:absolute;inset:0;width:100%;height:100%;${mk}`);
+  e.img.decoding = 'sync'; e.img.src = a.src; e.w = w; e.h = h;
+  e._filtro = 'drop-shadow(0 0 26px rgba(255,255,255,.10))';
+  const ol = Array.isArray(o.tarja) ? o.tarja : (o.tarja && window.OLHOS ? OLHOS[nome] : null);
+  if (ol) {
+    const bw = (ol[2] - ol[0]) * w, bh = Math.max((ol[3] - ol[1]) * h, bw * .2);
+    e.tarja = el(e, 'div', `position:absolute;left:${(ol[0] * w - bw * .12).toFixed(1)}px;top:${((ol[1] + ol[3]) / 2 * h - bh / 2).toFixed(1)}px;` +
+      `width:${(bw * 1.24).toFixed(1)}px;height:${bh.toFixed(1)}px;background:${VINHO};`);
+  }
+  e.at = (lt, t, op = {}) => entra(e, lt, t, { k: 'sobe', dy: 320, d: .4, ...op });
+  e.tira = (lt, t) => { if (e.tarja) e.tarja.style.opacity = lt >= t ? 0 : 1; };
+  return e;
+}
+// nome ao lado da pessoa com tracejado curvo até ela: nomeado(p, svg, 'Fan Bingbing', xTexto, yTexto, xAlvo, yAlvo, {estilo:'n', k})
+//   -> g.at(lt, t): o nome entra e o tracejado desenha até a pessoa
+function nomeado(p, svg, txt, x, y, x1, y1, o = {}) {
+  const t_ = linha(p, [[txt, o.estilo ?? 'n']], x, y, { alinha: o.alinha ?? 'esq' });
+  const b = t_.caixa();
+  const x0 = o.alinha === 'dir' ? b.x0 - 14 : (o.alinha === 'centro' ? (b.x0 + b.x1) / 2 : b.x0 + 30), y0 = b.y1 + 16;
+  const tr = tracejado(svg, curva(x0, y0, x1, y1, o.curva ?? -.35), { w: 2.4 });
+  return { t: t_, tr, at(lt, t) { t_.at(lt, t); tr.draw(clamp((lt - t - .1) / .45)); } };
+}
+
+// ---------- folha impressa: foto com borda branca e canto dobrado, ou documento; percevejo no topo ----------
+// ivFolha(e, asset, w, 'foto'|'doc', {borda: .045, base: .04, dobra: .13 (0 = sem), pino: true, recorte: [fy0, fy1] (doc: fatia da página)})
+//   -> altura; monta dentro do container e (que ganha width/height)
+function ivFolha(e, a, w, tipo, o = {}) {
+  const borda = tipo === 'foto' ? (o.borda ?? .045) : 0;
+  const fat = o.recorte || [0, 1], iw = w - 2 * w * borda, ihTot = iw * a.h / a.w, ih = ihTot * (fat[1] - fat[0]);
+  const h = ih + 2 * w * borda + (tipo === 'foto' ? w * (o.base ?? .04) : 0);
+  e.style.width = `${w}px`; e.style.height = `${h.toFixed(1)}px`;
+  const dobra = (o.dobra ?? .13) * w;
+  const papel = el(e, 'div', `position:absolute;inset:0;overflow:hidden;background:${tipo === 'foto' ? '#e7e6e2' : IV.papel};` +
+    (o.dobra === 0 ? '' : `clip-path:polygon(0 0,100% 0,100% ${(h - dobra).toFixed(1)}px,${(w - dobra).toFixed(1)}px 100%,0 100%);`));
+  const vis = el(papel, 'div', `position:absolute;left:${w * borda}px;top:${w * borda}px;width:${iw}px;height:${ih.toFixed(1)}px;overflow:hidden;`);
+  const im = el(vis, 'img', `position:absolute;left:0;top:${(-fat[0] * ihTot).toFixed(1)}px;width:${iw}px;height:${ihTot.toFixed(1)}px;filter:contrast(1.06) brightness(.96);`);
+  im.decoding = 'sync'; im.src = a.src;
+  if (o.dobra !== 0) el(e, 'div', `position:absolute;left:${(w - dobra).toFixed(1)}px;top:${(h - dobra).toFixed(1)}px;width:${dobra.toFixed(1)}px;height:${dobra.toFixed(1)}px;` +
+    'background:linear-gradient(135deg,#f2f1ee 0%,#c9c8c4 55%,#8d8c88 100%);clip-path:polygon(0 0,100% 0,0 100%);filter:drop-shadow(-3px -2px 4px rgba(0,0,0,.45));');
+  if (o.pino !== false) el(e, 'div', `position:absolute;left:${w / 2 - 13}px;top:${h * .045 - 13}px;width:26px;height:26px;border-radius:50%;` +
+    'background:radial-gradient(circle at 36% 32%,#ffffff 0%,#b9b9b9 32%,#5c5c5c 66%,#2a2a2a 100%);box-shadow:3px 5px 6px rgba(40,0,0,.35);');
+  e.style.filter = 'drop-shadow(0 16px 22px rgba(40,0,0,.26))';
+  return h;
+}
+// foto/documento impresso solto no palco escuro: impressa(p, 'i_x', cx, cy, w, {rot, tipo: 'foto'|'doc', dobra, pino, recorte})
+//   -> e; e.at(lt, t, {k: 'foco'|'sobe'|'lado'|..., out}) (mesma entrada das outras peças)
+function impressa(p, nome, cx, cy, w, o = {}) {
+  const a = AS(nome);
+  if (!a) throw new Error(`asset ${nome} não existe (provas.py modo imp/doc)`);
+  const e = el(p, 'div', 'position:absolute;opacity:0;transform-origin:50% 50%;');
+  const h = ivFolha(e, a, w, o.tipo ?? (nome.startsWith('d_') ? 'doc' : 'foto'), o);
+  e.style.left = `${(cx - w / 2).toFixed(1)}px`; e.style.top = `${(cy - h / 2).toFixed(1)}px`;
+  e._rot = o.rot ?? 0; e.w = w; e.h = h;
+  e._filtro = 'drop-shadow(0 16px 22px rgba(40,0,0,.26))';
+  e.at = (lt, t, op = {}) => entra(e, lt, t, { k: 'foco', ...op });
+  return e;
+}
+
+// ---------- mural de provas ----------
+// const M = mural();                                         (defina UMA vez no work/<prefixo>_b.js; as cenas reaproveitam)
+// M.foto('lula', 'i_lula', 1500, 1200, {w: 440, rot: -3, dz: 0, desde: ['B19', '2006']})   foto P&B com borda branca e canto dobrado
+// M.doc('tcu', 'd_tcu', 2000, 900, {w: 380, desde: 'B37'})                               folha de documento (sem borda)
+// M.fio('lula', 'tcu', {desde: ['B37', 'bilhões']})                                       fio vermelho entre os percevejos
+//   desde = beat (ou [beat, palavra]) em que o item aparece pela 1ª vez: nas cenas seguintes ele já está na parede.
+//   dz = profundidade (+ perto da câmera, - longe): dá paralaxe e foco diferente entre os itens.
+function mural(o = {}) {
+  return {
+    itens: [], fios: [], o,
+    foto(id, asset, x, y, op = {}) { this.itens.push({ id, tipo: 'foto', asset, x, y, ...op }); return this; },
+    doc(id, asset, x, y, op = {}) { this.itens.push({ id, tipo: 'doc', asset, x, y, ...op }); return this; },
+    fio(a, b, op = {}) { this.fios.push({ a, b, ...op }); return this; },
+  };
+}
+function ivQuando(desde, c, beats) {   // tempo local em que o item aparece; null = já estava; undefined = ainda não existe
+  if (!desde) return null;
+  const [b, w] = Array.isArray(desde) ? desde : [desde, null];
+  if (!BYID[b]) throw new Error(`mural: beat ${b} não existe`);
+  const iLast = BYID[beats[beats.length - 1]].i, iFirst = BYID[beats[0]].i, ib = BYID[b].i;
+  if (ib < iFirst) return null;
+  if (ib > iLast) return undefined;
+  return (w === null ? c.b(b) : c.w(b, w)) - .06;
+}
+// muralCena(beats, M, {cam: c => [[t, {x, y, d, r}], ...]  (x, y = ponto da parede no centro; d = distância, 1000 = tamanho real),
+//                      cap, foco: 'id' (força o foco), luz: .55, build(r, S, c), update(S, c)})
+function muralCena(beats, M, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      const wall = el(r, 'div', `position:absolute;left:0;top:0;width:14000px;height:14000px;transform-origin:0 0;` +
+        `background:#EDEAEA url(${AS('t_parede') ? AS('t_parede').src : ''}) 0 0/1100px 1100px repeat;`);
+      S.wall = wall;
+      S.itens = [];
+      M.itens.forEach(it => {
+        const ta = ivQuando(it.desde, c, beats);
+        if (ta === undefined) return;
+        const a = AS(it.asset);
+        if (!a) throw new Error(`mural: asset ${it.asset} não existe`);
+        const w = it.w ?? 420;
+        const e = el(r, 'div', `position:absolute;left:0;top:0;transform-origin:50% 50%;`);
+        const h = ivFolha(e, a, w, it.tipo, it);
+        S.itens.push({ ...it, e, w, h, ta, pinY: h * .045, rot: it.rot ?? 0, dz: it.dz ?? 0 });
+      });
+      S.svg = svgAbs(r, 0, 0, W, H);
+      S.fios = M.fios.map(f => {
+        const A = S.itens.find(x => x.id === f.a), B = S.itens.find(x => x.id === f.b);
+        if (!A || !B) return null;
+        const ta = ivQuando(f.desde, c, beats);
+        if (ta === undefined) return null;
+        const p = sv(S.svg, 'path', { fill: 'none', stroke: IV.fio, 'stroke-width': 3, 'stroke-linecap': 'round', opacity: .92 });
+        p.style.filter = 'drop-shadow(2px 5px 3px rgba(40,0,0,.3))';
+        return { A, B, ta, p };
+      }).filter(Boolean);
+      S.luz = el(r, 'div', 'position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 62% 46% at 50% 46%, rgba(255,255,255,0) 45%, rgba(49,45,45,.04) 80%, rgba(49,45,45,.09) 100%);');
+      S.cam = ivKf(o.cam ? o.cam(c) : [[0, { x: S.itens[0]?.x ?? 1500, y: S.itens[0]?.y ?? 1500, d: 1400 }]], { x: 1500, y: 1500, d: 1400, r: 0 });
+      S.r = r; S._mbProprio = true;
+      S.cap = o.cap ?? { modo: 'palavra' };
+      S.vig = o.vig ?? .4; S.grao = o.grao ?? .14;   // fundo branco: vinheta e grão leves (parede ~#F2F2F2)
+      if (o.build) o.build(r, S, c);
+    },
+    update(S, c) {
+      const lt = c.lt;
+      const k0 = S.cam(lt), d = k0.d, cx = k0.x, cy = k0.y, rr = (k0.r || 0) * Math.PI / 180;
+      { const p0 = S.cam(Math.max(0, lt - 1 / 30)), kk = 1000 / d;
+        ivBorrao(S.r, S, (cx - p0.x) * kk, (cy - p0.y) * kk, Math.abs(1000 / d - 1000 / p0.d) / kk * 600 + Math.abs(k0.r - p0.r) * Math.PI / 180 * 600); }
+      // (cx, cy) = ponto da parede no centro da tela; escala de cada item = 1000 / (d - dz)
+      const proj = (x, y, dz) => {
+        const k = 1000 / Math.max(120, d - dz);
+        let sx = (x - cx) * k, sy = (y - cy) * k;
+        const ux = sx * Math.cos(rr) - sy * Math.sin(rr), uy = sx * Math.sin(rr) + sy * Math.cos(rr);
+        return [540 + ux, 960 + uy, k];
+      };
+      // foco: média ponderada da profundidade dos itens perto do centro da câmera
+      let sw = 0, sdz = 0;
+      S.itens.forEach(it => { const ww = Math.exp(-(((it.x - cx) ** 2 + (it.y - cy) ** 2) / (300 * 300))); sw += ww; sdz += ww * it.dz; });
+      const dzF = o.foco ? (S.itens.find(x => x.id === o.foco)?.dz ?? 0) : (sw > 1e-6 ? sdz / sw : 0);
+      const kw = 1000 / (d + 380), wx = 540 + (-7000 - cx) * kw, wy = 960 + (-7000 - cy) * kw;
+      S.wall.style.transform = `translate(${wx.toFixed(1)}px,${wy.toFixed(1)}px) scale(${kw.toFixed(4)})`;
+      S.wall.style.filter = `blur(${Math.min(6, Math.abs(-380 - dzF) * .01).toFixed(1)}px)`;
+      S.itens.forEach(it => {
+        const [sx, sy, k] = proj(it.x, it.y, it.dz);
+        const ap = it.ta === null ? 1 : E.out5(clamp((lt - it.ta) / .32));
+        const s = k * (1 + .12 * (1 - ap));
+        it.e.style.transform = `translate(${(sx - it.w / 2).toFixed(1)}px,${(sy - it.h / 2).toFixed(1)}px) rotate(${(it.rot + (k0.r || 0)).toFixed(2)}deg) scale(${s.toFixed(4)})`;
+        it.e.style.opacity = (it.ta === null ? 1 : clamp((lt - it.ta) / .12)).toFixed(3);
+        const rho = Math.hypot(sx - 540, sy - 900);
+        const bl = clamp(Math.abs(it.dz - dzF) * .03 + Math.max(0, rho - 380) * .009, 0, 10) + (1 - ap) * 10;
+        const brl = 1 - (o.luz ?? .55) * clamp((rho - 260) / 900);
+        it.e.style.filter = `drop-shadow(0 16px 22px rgba(40,0,0,.26)) brightness(${brl.toFixed(3)})` + (bl > .35 ? ` blur(${bl.toFixed(1)}px)` : '');
+        it.sx = sx; it.sy = sy; it.k = k;
+      });
+      const pino = it => { const oy = -it.h / 2 + it.pinY, th = it.rot * Math.PI / 180; return proj(it.x - oy * Math.sin(th), it.y + oy * Math.cos(th), it.dz); };
+      S.fios.forEach(f => {
+        const pa = pino(f.A), pb = pino(f.B);
+        const q = f.ta === null ? 1 : E.inOut(clamp((lt - f.ta) / .5));
+        const ex = lerp(pa[0], pb[0], q), ey = lerp(pa[1], pb[1], q), len = Math.hypot(ex - pa[0], ey - pa[1]);
+        const mx = (pa[0] + ex) / 2, my = (pa[1] + ey) / 2 + len * .07;
+        f.p.setAttribute('d', `M${pa[0].toFixed(1)},${pa[1].toFixed(1)} Q${mx.toFixed(1)},${my.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}`);
+        f.p.setAttribute('stroke-width', (2.6 * Math.sqrt((pa[2] + pb[2]) / 2)).toFixed(2));
+        f.p.style.visibility = q > .01 ? 'visible' : 'hidden';
+      });
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// posição de um trecho achado pelo pagina.py (--marca): ivMarca('d_x', 'R$ 2,7 bi') -> [fx0, fy0, fx1, fy1] (fração da página)
+function ivMarca(nome, trecho) {
+  const m = window.MARCAS && MARCAS[nome] && MARCAS[nome][trecho];
+  if (!m) throw new Error(`MARCAS sem ${nome} / "${trecho}" (rode pagina.py com --marca "${trecho}")`);
+  return m;
+}
+// ---------- documento P&B em perspectiva com faixa de foco ----------
+// docCena(beats, 'd_x', {cam: c => [[t, {x, y, z, r}], ...]  (x, y em FRAÇÃO da página: 0..1; z = zoom; r = giro),
+//   inclina: 13 (graus, topo foge), faixa: [.36, .64] (faixa nítida na tela, 0..1), rack: c => t (tudo desfocado até t),
+//   marcas: c => [[fx0, fy0, fx1, fy1, t], ...] (marca-texto vermelho em fração da página), larg: 1180, cap, build, update)
+function docCena(beats, nome, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      const a = AS(nome);
+      if (!a) throw new Error(`asset ${nome} não existe (provas.py modo doc)`);
+      const W0 = o.larg ?? 1180, H0 = W0 * a.h / a.w;
+      S.W0 = W0; S.H0 = H0;
+      el(r, 'div', 'position:absolute;inset:0;background:#E8E5E5;');
+      const faixa = o.faixa ?? [.34, .66];
+      const copia = nitida => {
+        const wrap = el(r, 'div', `position:absolute;inset:0;perspective:1500px;perspective-origin:50% 50%;` + (nitida ?
+          `-webkit-mask-image:linear-gradient(180deg,rgba(0,0,0,0) ${(faixa[0] - .16) * 100}%,#000 ${faixa[0] * 100}%,#000 ${faixa[1] * 100}%,rgba(0,0,0,0) ${(faixa[1] + .16) * 100}%);` +
+          `mask-image:linear-gradient(180deg,rgba(0,0,0,0) ${(faixa[0] - .16) * 100}%,#000 ${faixa[0] * 100}%,#000 ${faixa[1] * 100}%,rgba(0,0,0,0) ${(faixa[1] + .16) * 100}%);` : ''));
+        const pg = el(wrap, 'div', `position:absolute;left:${540 - W0 / 2}px;top:0;width:${W0}px;height:${H0}px;background:${IV.papel};box-shadow:0 0 60px rgba(40,0,0,.18);`);
+        const im = el(pg, 'img', 'position:absolute;inset:0;width:100%;height:100%;');
+        im.decoding = 'sync'; im.src = a.src;
+        pg.marcas = (o.marcas ? o.marcas(c) : []).map(([x0, y0, x1, y1, t]) => {
+          const m = el(pg, 'div', `position:absolute;left:${x0 * W0 - 6}px;top:${y0 * H0}px;width:${(x1 - x0) * W0 + 12}px;height:${(y1 - y0) * H0}px;` +
+            `background:${IV.marca};mix-blend-mode:multiply;border-radius:6px 3px 7px 4px;transform-origin:0 50%;transform:scaleX(0);`);
+          m._t = t; return m;
+        });
+        if (!nitida) pg.style.filter = 'blur(9px) brightness(.97)';
+        return { wrap, pg };
+      };
+      S.b = copia(false); S.n = copia(true);
+      el(r, 'div', 'position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 80% 62% at 50% 48%, rgba(0,0,0,0) 42%, rgba(49,45,45,.16) 100%);');
+      S.cam = ivKf(o.cam ? o.cam(c) : [[0, { x: .5, y: .3, z: 1 }], [c.dur, { z: 1.08 }]], { x: .5, y: .3, z: 1, r: 0 });
+      S.r = r; S._mbProprio = true;
+      S.rack = o.rack ? o.rack(c) : null;
+      S.cap = o.cap ?? { modo: 'palavra', doc: true };
+      S.vig = o.vig ?? .8; S.grao = o.grao ?? .2;
+      if (o.build) o.build(r, S, c);
+    },
+    update(S, c) {
+      const lt = c.lt, k = S.cam(lt), z = k.z;
+      const X = k.x * S.W0, Y = k.y * S.H0;                      // ponto da página (em fração) que fica no centro da tela
+      { const p0 = S.cam(Math.max(0, lt - 1 / 30));
+        ivBorrao(S.r, S, (k.x - p0.x) * S.W0 * z, (k.y - p0.y) * S.H0 * z, Math.abs(z - p0.z) / z * 600 + Math.abs(k.r - p0.r) * Math.PI / 180 * 600); }
+      [S.b, S.n].forEach(({ pg }) => {
+        pg.style.transformOrigin = `${X.toFixed(1)}px ${Y.toFixed(1)}px`;
+        pg.style.transform = `translate(${(S.W0 / 2 - X).toFixed(1)}px,${(960 - Y).toFixed(1)}px) rotateX(${o.inclina ?? 13}deg) rotateZ(${(k.r || 0).toFixed(2)}deg) scale(${z.toFixed(4)})`;
+        pg.marcas.forEach(m => { m.style.transform = `scaleX(${E.out(clamp((lt - m._t) / .3)).toFixed(4)})`; });
+      });
+      S.n.wrap.style.opacity = S.rack === null ? 1 : E.inOut(clamp((lt - S.rack) / .45)).toFixed(3);
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- foto de arquivo em tela cheia (P&B em retícula; provas.py modo foto -> f_<nome>.jpg) ----------
+// fotoCena(beats, 'f_x', {z0: 1.12, z1: 1.0 (a referência abre devagar), fx: .5, fy: .45, cap, build, update})
+function fotoCena(beats, nome, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      S.capClara = true;
+      const a = AS(nome);
+      if (!a) throw new Error(`asset ${nome} não existe (provas.py modo foto)`);
+      S.img = el(r, 'img', 'position:absolute;left:0;top:0;transform-origin:0 0;filter:contrast(1.05);');
+      S.img.decoding = 'sync'; S.img.src = a.src; S.a = a;
+      el(r, 'div', 'position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 78% 64% at 50% 46%, rgba(0,0,0,0) 44%, rgba(49,45,45,.18) 100%);');
+      S.cap = o.cap ?? { modo: 'palavra', doc: true };
+      S.vig = o.vig ?? .7; S.grao = o.grao ?? .2;
+      if (o.build) o.build(r, S, c);
+    },
+    update(S, c) {
+      const u = E.inOut(clamp(c.lt / Math.max(1, c.dur))), z = lerp(o.z0 ?? 1.12, o.z1 ?? 1.0, u);
+      const k = Math.max(1080 / S.a.w, 1920 / S.a.h) * z, w = S.a.w * k, h = S.a.h * k;
+      const x = clamp(540 - (o.fx ?? .5) * w, 1080 - w, 0), y = clamp(960 - (o.fy ?? .45) * h, 1920 - h, 0);
+      S.img.style.width = `${S.a.w}px`; S.img.style.height = `${S.a.h}px`;
+      S.img.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) scale(${k.toFixed(4)})`;
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- site / página impressa com borda rasgada (provas.py modo site -> w_<nome>.png) ----------
+// siteCena(beats, 'w_x', {w: 980, inclina: 10, rack: c => 0, cam: c => [[t, {x, y, z}]], marcas: c => [[fx0, fy0, fx1, fy1, t]], cap})
+//   a impressão fica num plano inclinado sobre uma cópia gigante desfocada dela mesma (o "bokeh" da referência)
+function siteCena(beats, nome, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      const a = AS(nome);
+      if (!a) throw new Error(`asset ${nome} não existe (provas.py modo site)`);
+      const w = o.w ?? 980, h = w * a.h / a.w;
+      const fundo = el(r, 'img', `position:absolute;left:${540 - 1500}px;top:${960 - 1500 * a.h / a.w}px;width:3000px;filter:blur(26px) brightness(1.05) contrast(.8) opacity(.6);`);
+      fundo.decoding = 'sync'; fundo.src = a.src;
+      S.wrap = el(r, 'div', 'position:absolute;inset:0;perspective:1500px;perspective-origin:50% 48%;');
+      S.pg = el(S.wrap, 'div', `position:absolute;left:${540 - w / 2}px;top:${960 - h / 2}px;width:${w}px;height:${h}px;filter:drop-shadow(0 24px 34px rgba(40,0,0,.22));`);
+      const im = el(S.pg, 'img', 'position:absolute;inset:0;width:100%;height:100%;');
+      im.decoding = 'sync'; im.src = a.src;
+      S.marcas = (o.marcas ? o.marcas(c) : []).map(([x0, y0, x1, y1, t]) => {
+        const m = el(S.pg, 'div', `position:absolute;left:${x0 * w - 5}px;top:${y0 * h}px;width:${(x1 - x0) * w + 10}px;height:${(y1 - y0) * h}px;` +
+          `background:${IV.marca};mix-blend-mode:multiply;border-radius:5px 3px 6px 4px;transform-origin:0 50%;transform:scaleX(0);`);
+        m._t = t; return m;
+      });
+      S.w = w; S.h = h;
+      el(r, 'div', 'position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 80% 60% at 50% 48%, rgba(0,0,0,0) 40%, rgba(49,45,45,.18) 100%);');
+      S.cam = ivKf(o.cam ? o.cam(c) : [[0, { x: .5, y: .5, z: 1 }], [c.dur, { z: 1.07 }]], { x: .5, y: .5, z: 1, r: 0 });
+      S.r = r; S._mbProprio = true;
+      S.rack = o.rack ? o.rack(c) : 0;
+      S.cap = o.cap ?? { modo: 'palavra' };
+      S.vig = o.vig ?? .8; S.grao = o.grao ?? .2;
+      if (o.build) o.build(r, S, c);
+    },
+    update(S, c) {
+      const lt = c.lt, k = S.cam(lt), z = k.z;
+      const X = k.x * S.w, Y = k.y * S.h;
+      { const p0 = S.cam(Math.max(0, lt - 1 / 30));
+        ivBorrao(S.r, S, (k.x - p0.x) * S.w * z, (k.y - p0.y) * S.h * z, Math.abs(z - p0.z) / z * 600 + Math.abs(k.r - p0.r) * Math.PI / 180 * 600); }
+      S.pg.style.transformOrigin = `${X.toFixed(1)}px ${Y.toFixed(1)}px`;
+      S.pg.style.transform = `translate(${(S.w / 2 - X).toFixed(1)}px,${(S.h / 2 - Y).toFixed(1)}px) rotateX(${o.inclina ?? 10}deg) rotateZ(${(k.r || 0).toFixed(2)}deg) scale(${z.toFixed(4)})`;
+      const q = S.rack === null ? 1 : E.inOut(clamp((lt - S.rack) / .5));
+      S.pg.style.filter = `drop-shadow(0 24px 34px rgba(40,0,0,.22))` + (q < .98 ? ` blur(${((1 - q) * 14).toFixed(1)}px)` : '');
+      S.marcas.forEach(m => { m.style.transform = `scaleX(${E.out(clamp((lt - m._t) / .3)).toFixed(4)})`; });
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- TV de tubo num ambiente claro (V4: fundo branco) ----------
+// tvCena(beats, {img: 'i_x' (print na tela; pos: '50% 0%' = recorte) | clipe: 'nome' (render/clips/<nome>/, toca na tela), from, cam: c => [[t, {x, y, z, r}]],
+//                rack: c => 0, cap, build, update}) — asset g_tv60 (vem do modelo/ da skill pelo preparar)
+function tvCena(beats, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', lead: o.lead,
+    camMove: o.cam ? camC(o.cam) : camOlha([[0, { x: 560, y: 1000, z: 1.0, r: -1.2 }], [6, { z: 1.12, r: .8 }]]),
+    build(r, S, c) {
+      el(r, 'div', 'position:absolute;left:-600px;top:-600px;width:2280px;height:3120px;background:' +
+        'radial-gradient(ellipse 34% 22% at 50% 52%, rgba(255,255,255,.7), rgba(255,255,255,0) 70%),' +
+        'linear-gradient(180deg,#F7F6F6 0%,#F0EEEE 47%,#E4E0E0 47.4%,#ECE9E9 70%,#E2DEDE 100%);');
+      el(r, 'div', 'position:absolute;left:-600px;top:-600px;width:1000px;height:3120px;background:linear-gradient(90deg,rgba(49,45,45,.12),rgba(0,0,0,0));transform:skewY(-8deg);');
+      const tw = o.w ?? 860, th = tw * 964 / 1100, cx = 540, cy = 1080, x0 = cx - tw / 2, y0 = cy - th / 2;
+      const sx = x0 + .088 * tw, sy = y0 + .125 * th, sw = (.739 - .088) * tw, sh = (.668 - .125) * th;
+      const tv = el(r, 'img', `position:absolute;left:${x0}px;top:${y0}px;width:${tw}px;filter:grayscale(1) brightness(.62) contrast(1.15) drop-shadow(0 30px 40px rgba(40,0,0,.3));`);
+      tv.decoding = 'sync'; tv.src = AS('g_tv60') ? AS('g_tv60').src : '';         // a tela do PNG é opaca: a imagem vai POR CIMA
+      S.tela = el(r, 'div', `position:absolute;left:${sx}px;top:${sy}px;width:${sw}px;height:${sh}px;border-radius:9%;overflow:hidden;background:#111;`);
+      if (o.clipe) S.cl = clipe(S.tela, o.clipe, S, { from: o.from ?? 0, z0: 1, z1: 1.04, w: sw, h: sh });
+      else {
+        const a = AS(o.img); if (!a) throw new Error(`asset ${o.img} não existe`);
+        const im = el(S.tela, 'img', `position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:${o.pos ?? '50% 50%'};filter:brightness(1.1) contrast(1.12);`);
+        im.decoding = 'sync'; im.src = a.src;
+      }
+      el(S.tela, 'div', 'position:absolute;inset:0;background:repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 2px, rgba(0,0,0,0) 2px 5px),' +
+        'radial-gradient(ellipse at 40% 30%, rgba(255,255,255,.14) 0%, rgba(0,0,0,0) 45%), radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 100%);');
+      el(r, 'div', `position:absolute;left:${sx - 60}px;top:${sy - 60}px;width:${sw + 120}px;height:${sh + 120}px;border-radius:30%;` +
+        'background:radial-gradient(ellipse, rgba(220,225,235,.10), rgba(0,0,0,0) 70%);mix-blend-mode:screen;pointer-events:none;');
+      S.rack = o.rack ? o.rack(c) : 0;
+      S.cap = o.cap ?? { modo: 'palavra' };
+      S.vig = o.vig ?? .8; S.grao = o.grao ?? .26;
+      if (o.build) o.build(r, S, c);
+    },
+    update(S, c) {
+      const q = S.rack === null ? 1 : E.inOut(clamp((c.lt - S.rack) / .55));
+      S._filtroExtra = q < .98 ? `blur(${((1 - q) * 12).toFixed(1)}px)` : '';
+      S.tela.parentNode.style.filter = S._filtroExtra;                      // o embrulho do scene() soma o borrão de movimento
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- clipe de vídeo (render/clips/<nome>/0001.jpg, 30 fps) — na TV ou em tela cheia P&B ----------
+// g = clipe(p, 'nome', S, {from, rate, fx, fy, z0, z1, dur, t0, n, w, h, pb: true})
+function clipe(p, nome, S, o = {}) {
+  const Wc = o.w ?? 1080, Hc = o.h ?? 1920;
+  const g = el(p, 'div', `position:absolute;left:0;top:0;width:${Wc}px;height:${Hc}px;overflow:hidden;background:#000;`);
+  const img = el(g, 'img', `position:absolute;left:0;top:0;transform-origin:0 0;${o.pb === false ? '' : 'filter:grayscale(1) contrast(1.15);'}`);
+  img.decoding = 'sync';
+  g.img = img; g.cur = -1; g.t0 = o.t0 ?? 0; g.from = o.from ?? 0; g.rate = o.rate ?? 1;
+  g.n = o.n ?? (window.CLIPN && CLIPN[nome]) ?? 90;
+  (S.async = S.async || []).push(async lt => {
+    if (g.style.display === 'none') return;
+    const f = Math.max(0, Math.min(g.n - 1, Math.round(g.from * 30 + Math.max(0, lt - g.t0) * 30 * g.rate)));
+    if (f !== g.cur) { img.src = `clips/${nome}/${String(f + 1).padStart(4, '0')}.jpg`; try { await img.decode(); } catch (e) { } g.cur = f; }
+    const iw = img.naturalWidth || 1080, ih = img.naturalHeight || 1920;
+    const u = clamp((lt - g.t0) / (o.dur ?? 3)), z = lerp(o.z0 ?? 1.0, o.z1 ?? 1.06, E.inOut(u));
+    const k = Math.max(Wc / iw, Hc / ih) * z, w = iw * k, h = ih * k;
+    const x = clamp(Wc / 2 - (o.fx ?? .5) * w, Wc - w, 0), y = clamp(Hc / 2 - (o.fy ?? .5) * h, Hc - h, 0);
+    img.style.width = `${iw}px`; img.style.height = `${ih}px`;
+    img.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) scale(${k.toFixed(4)})`;
+  });
+  return g;
+}
+
+// ---------- mapa CLARO do Brasil com estados em Vermelho V4 (BRGEO do kit) — V4: fundo branco ----------
+// mapaCena(beats, {alvo: ['MA','CE'], acende: c => t (ou {MA: t1, CE: t2}), cam: c => [[t, {x, y, z, r}]] (coordenadas do mapa,
+//   Brasil inteiro ≈ x 90–990, y 510–1380), rotulos: (p, svg, S, c) => [...] (use linha()/tracejado() nas coordenadas do mapa), cap})
+function mapaCena(beats, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', lead: o.lead,
+    camMove: o.cam ? camC(o.cam) : camOlha([[0, { x: 560, y: 900, z: 1.0 }], [5, { z: 1.15 }]]),
+    build(r, S, c) {
+      el(r, 'div', 'position:absolute;left:-3000px;top:-3000px;width:7080px;height:7920px;background:#F2F2F2;');
+      const s = svgAbs(r, 0, 0, W, H);
+      const defs = sv(s, 'defs');
+      const pid = uid('pt'), cid = uid('cl');
+      const pt = sv(defs, 'pattern', { id: pid, width: 7, height: 7, patternUnits: 'userSpaceOnUse', patternTransform: 'rotate(45)' });
+      sv(pt, 'circle', { cx: 3.5, cy: 3.5, r: 1.15, fill: 'rgba(40,0,0,.10)' });
+      const cp = sv(defs, 'clipPath', { id: cid }); sv(cp, 'path', { d: BRGEO.country });
+      const land = sv(s, 'g', {});
+      land.style.filter = 'drop-shadow(0 10px 18px rgba(40,0,0,.16))';
+      sv(land, 'path', { d: BRGEO.country, fill: '#DDD8D8' });
+      // "relevo": traços finos aleatórios dentro do país (estradas/rios estilizados)
+      const ruas = sv(land, 'g', { 'clip-path': `url(#${cid})`, stroke: '#cdc6c6', 'stroke-width': .9, fill: 'none', opacity: .9 });
+      for (let i = 0; i < 160; i++) {
+        let x = 90 + hrand(i * 1.7) * 900, y = 510 + hrand(i * 2.9 + 1) * 870, d = `M${x.toFixed(1)},${y.toFixed(1)}`;
+        for (let j = 0; j < 6; j++) { x += (hrand(i * 13 + j) - .5) * 60; y += (hrand(i * 7 + j * 3) - .5) * 60; d += ` L${x.toFixed(1)},${y.toFixed(1)}`; }
+        sv(ruas, 'path', { d });
+      }
+      sv(land, 'rect', { x: 0, y: 0, width: W, height: H, fill: `url(#${pid})`, 'clip-path': `url(#${cid})` });
+      S.uf = {};
+      BRGEO.states.forEach(z => {
+        const pth = sv(land, 'path', { d: z.d, fill: 'none', stroke: '#FFFFFF', 'stroke-width': 1.6 });
+        S.uf[z.uf] = { z, pth };
+      });
+      S.alvos = (o.alvo || []).map(uf => {
+        const z = S.uf[uf].z, g = sv(s, 'g', {});
+        g.style.filter = 'drop-shadow(0 6px 12px rgba(229,9,20,.3))';
+        sv(g, 'path', { d: z.d, fill: V4 });
+        sv(g, 'path', { d: z.d, fill: `url(#${pid})` });
+        sv(g, 'path', { d: z.d, fill: 'none', stroke: V4_LUZ, 'stroke-width': 1.2, opacity: .7 });
+        g.setAttribute('opacity', 0);
+        return { uf, g };
+      });
+      const ac = o.acende ? o.acende(c) : 0;
+      S.acende = uf => (typeof ac === 'number' ? ac : (ac[uf] ?? 0));
+      S.svg = sv(s, 'g', {});
+      S.rot = o.rotulos ? o.rotulos(r, S.svg, S, c) : [];
+      S.cap = o.cap ?? { modo: 'none' };
+      S.vig = o.vig ?? .65; S.grao = o.grao ?? .22;
+      if (o.build) o.build(r, S, c);
+    },
+    update(S, c) {
+      S.alvos.forEach(a => {
+        const t = S.acende(a.uf), u = clamp((c.lt - t) / .18);
+        const pisca = u > 0 && u < 1 ? (Math.sin(u * 22) > 0 ? 1 : .35) : (u >= 1 ? 1 : 0);
+        a.g.setAttribute('opacity', pisca.toFixed(3));
+      });
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- final: perfil REAL preso na parede, botão Seguir -> Seguindo (só se a fala pedir para seguir) ----------
+// fimPerfilInv(['B128','B129'], {perfil: 'perfil_felipedantasf', toque: ['B129', 'seguir'], nome: 'Felipe Dantas'})
+function fimPerfilInv(beats, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', lead: o.lead,
+    camMove: (lt, c) => { const u = E.inOut(clamp(lt / Math.max(1, c.dur))); return { s: 1 + .07 * u, x: 0, y: -10 * u, r: lerp(-.6, .4, u) }; },
+    build(r, S, c) {
+      el(r, 'div', `position:absolute;left:-200px;top:-200px;width:1480px;height:2320px;background:#EDEAEA url(${AS('t_parede') ? AS('t_parede').src : ''}) 0 0/1100px 1100px repeat;`);
+      const [tb, tw] = o.toque || [beats[beats.length - 1], 'seguir'];
+      S.tT = c.w(tb, tw); S.tIn = Math.max(0, Math.min(.25, S.tT - .9));
+      const a = AS(o.perfil || 'perfil_felipedantasf');
+      const cw = 820, ch = a ? cw * a.h / a.w : 520;
+      S.card = box(r, 540, 860, cw + 56, ch + 56 + 170, 'background:#FFFFFF;opacity:0;filter:drop-shadow(0 22px 30px rgba(40,0,0,.25));');
+      if (a) { const im = el(S.card, 'img', `position:absolute;left:28px;top:28px;width:${cw}px;filter:grayscale(1) contrast(1.08);`); im.src = a.src; }
+      else el(S.card, 'div', `position:absolute;left:28px;top:60px;width:${cw}px;text-align:center;font-family:${SANS};font-weight:700;font-size:64px;color:${IV.tinta};`, esc(o.nome || ''));
+      el(S.card, 'div', `position:absolute;left:${(cw + 56) / 2 - 15}px;top:10px;width:30px;height:30px;border-radius:50%;` +
+        'background:radial-gradient(circle at 36% 32%,#fff 0%,#bbb 32%,#5c5c5c 66%,#2a2a2a 100%);box-shadow:4px 7px 7px rgba(0,0,0,.65);');
+      S.btn = el(S.card, 'div', `position:absolute;left:50%;bottom:44px;transform:translateX(-50%);min-width:440px;padding:22px 40px;border-radius:999px;text-align:center;` +
+        `font-family:${SANS};font-weight:700;font-size:54px;letter-spacing:-.02em;background:${VERDE_CTA};color:#fff;box-shadow:0 12px 26px rgba(0,0,0,.45);`, 'Seguir');   // V4: verde = cor de ação
+      S.cap = lt => lt >= S.tIn - .05 ? { modo: 'none' } : { modo: 'palavra' };
+      S.vig = .7; S.grao = .2;
+      cue(c, 'click', S.tT, { g: .5 });
+    },
+    update(S, c) {
+      const lt = c.lt;
+      entra(S.card, lt, S.tIn, { k: 'foco', d: .4 });
+      const on = lt >= S.tT;
+      S.btn.textContent = on ? 'Seguindo ✓' : 'Seguir';
+      S.btn.style.background = on ? GRAFITE : VERDE_CTA; S.btn.style.boxShadow = on ? 'none' : '0 12px 26px rgba(0,0,0,.45)';
+      S.btn.style.transform = `translateX(-50%) scale(${(1 - .08 * Math.sin(Math.PI * clamp((lt - S.tT + .08) / .2))).toFixed(3)})`;
+    },
+  });
+}
+
+// ============================================================================
+//  V4: logo oficial, reverberação do símbolo e final com a assinatura (brand book 2026)
+// ============================================================================
+// LOGO OFICIAL da V4: o SVG do brand book (LOGO_V4_SVG, inserido pelo preparar_ev4.py SEM alteração). Branco sobre vinho/vermelho,
+// vermelho sobre papel claro. Nunca distorcer, recolorir, girar, deixar transparente parado ou animar por partes; área de proteção =
+// espessura do "4" (~14% da largura); mínimo 50 px. Entra com entra(e, lt, t, {k: 'foco'}) (sem giro).
+function logoV4(p, cx, cy, w, o = {}) {
+  w = Math.max(50, w);
+  const h = w * 203 / 200, pad = o.area === false ? 0 : w * .14;
+  const b = box(p, cx, cy, w + 2 * pad, h + 2 * pad, 'opacity:0;');
+  const sv0 = (typeof LOGO_V4_SVG !== 'undefined' && LOGO_V4_SVG[o.cor ?? 'branca']) || '';
+  const im = el(b, 'div', `position:absolute;left:${pad}px;top:${pad}px;width:${w}px;height:${h}px;`, sv0);
+  const s2 = im.querySelector('svg'); if (s2) { s2.setAttribute('width', w); s2.setAttribute('height', h); s2.style.display = 'block'; }
+  b._rot = 0;
+  return b;
+}
+function mixHex(a, b, q) {
+  const h = s => [1, 3, 5].map(i => parseInt(s.slice(i, i + 2), 16)), A = h(a), B = h(b);
+  return '#' + A.map((v, i) => Math.round(lerp(v, B[i], q)).toString(16).padStart(2, '0')).join('');
+}
+// REVERBERAÇÃO do símbolo (grafismo da marca): contornos concêntricos com cantos do logo, cheio/tracejado alternados, sombra leve em
+// cada camada. No dossiê vai em VERMELHO fino sobre o branco (atrás de número, logo ou foto-chave); 1–3 vezes por vídeo.
+//   const rv = reverbInv(p, 540, 900, 420, 420, {n: 5, passo: 60, cor: V4}); no update: rv.at(lt, t0, {out, vivo: true})
+function reverbInv(p, cx, cy, w, h, o = {}) {
+  const n = o.n ?? 5, passo = o.passo ?? 60, rr = o.raio ?? Math.min(w, h) * .125, cor = o.cor ?? V4;
+  const g = el(p, 'div', `position:absolute;left:${cx}px;top:${cy}px;width:0;height:0;`);
+  g.L = [...Array(n)].map((_, i) => {
+    const ww = w + 2 * passo * i, hh = h + 2 * passo * i, r0 = rr + passo * i * .9;
+    return el(g, 'div', `position:absolute;left:${-ww / 2}px;top:${-hh / 2}px;width:${ww}px;height:${hh}px;border-radius:${r0}px;box-sizing:border-box;` +
+      `border:${o.esp ?? 3}px ${i % 2 ? 'dashed' : 'solid'} ${cor};opacity:0;filter:drop-shadow(0 4px 6px rgba(40,0,0,.16));`);
+  });
+  g.at = (lt, t, q = {}) => {
+    const out = q.out !== undefined && lt > q.out ? E.in(clamp((lt - q.out) / .3)) : 0;
+    g.L.forEach((e, i) => {
+      const a = E.out5(clamp((lt - t - i * (q.gap ?? .07)) / (q.d ?? .45))), vivo = q.vivo ? .012 * Math.sin(lt * 1.6 - i * .7) : 0;
+      e.style.opacity = (a * (1 - out) * (q.alfa ?? (.85 - i * .1))).toFixed(3);
+      e.style.transform = `scale(${(lerp(.9, 1, a) * (1 + vivo) * lerp(1, 1.08, out)).toFixed(4)})`;
+    });
+  };
+  return g;
+}
+// FINAL com a assinatura da V4 (vídeo da marca / CTA "clica no link"): parede BRANCA, a reverberação abrindo em volta do LOGO OFICIAL
+// vermelho, o @ real da marca e o botão VERDE de ação (a única cor verde permitida) apertado na palavra; tudo na safe zone (y 420–1500).
+// fimV4Inv(['B105','B106'], {toque: ['B105', 'botao'], feito: ['B106', 'reuniao'], botao: 'Marcar reunião', ok: 'Reunião marcada ✓', handle: '@v4company'})
+function fimV4Inv(beats, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', lead: o.lead,
+    camMove: (lt, c) => { const u = IV_ARRANQUE(clamp(lt / Math.max(1, Math.min(c.dur, 3)))); return { s: 1.06 - .06 * u, x: 0, y: 0, r: 0 }; },
+    build(r, S, c) {
+      el(r, 'div', `position:absolute;left:-200px;top:-200px;width:1480px;height:2320px;background:#EDEAEA url(${AS('t_parede') ? AS('t_parede').src : ''}) 0 0/1100px 1100px repeat;`);
+      el(r, 'div', `position:absolute;inset:-200px;background:radial-gradient(ellipse 60% 42% at 50% 44%, rgba(255,255,255,.9) 0%, rgba(255,255,255,0) 70%);`);
+      S.rv = reverbInv(r, 540, 820, 300, 305, { n: 4, passo: 58 });
+      S.lg = logoV4(r, 540, 820, 250, { cor: 'vermelha' });   // fundo branco: a versão vermelha oficial
+      S.at = el(r, 'div', `position:absolute;left:540px;top:1140px;transform:translate(-50%,-50%);white-space:nowrap;font-family:${SANS};font-weight:600;font-size:42px;color:${IV.branco};opacity:0;`, esc(o.handle ?? '@v4company'));
+      S.at._base = 'translate(-50%,-50%)';
+      S.btn = el(r, 'div', `position:absolute;left:540px;top:1310px;transform:translate(-50%,-50%);min-width:640px;padding:30px 44px;border-radius:999px;text-align:center;` +
+        `font-family:${SANS};font-weight:700;font-size:52px;letter-spacing:-.01em;background:${VERDE_CTA};color:#fff;box-shadow:0 14px 28px rgba(0,0,0,.5);opacity:0;`, esc(o.botao ?? 'Marcar reunião'));
+      const [tb, tw] = o.toque || [beats[beats.length - 1], beats.length ? 'clica' : ''];
+      S.tT = c.w(tb, tw);
+      S.tF = o.feito ? c.w(o.feito[0], o.feito[1]) : S.tT + .6;
+      S.cap = { modo: 'palavra', y: 1452, s: 54 };
+      S.vig = .65; S.grao = .18;
+      cue(c, 'click', S.tT + .12, { g: .45 });
+    },
+    update(S, c) {
+      const lt = c.lt;
+      S.rv.at(lt, -.2, { vivo: true }); entra(S.lg, lt, -.2, { k: 'foco', d: .4 }); entra(S.at, lt, .25, { k: 'foco', d: .35 });
+      const aperta = lt > S.tT && lt < S.tT + .22 ? .94 : 1, q = E.out5(clamp((lt + .1) / .4));
+      S.btn.style.opacity = q.toFixed(3); S.btn.style.transform = `translate(-50%,-50%) scale(${(lerp(.9, 1, q) * aperta).toFixed(3)})`;
+      const ok = lt >= S.tF; S.btn.textContent = ok ? (o.ok ?? 'Reunião marcada ✓') : (o.botao ?? 'Marcar reunião');
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+

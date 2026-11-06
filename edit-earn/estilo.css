@@ -1,0 +1,14 @@
+/* ==== edit-earn: fontes do formato, sem legenda corrida nem barra, grão e vinheta por cena (a malha de 6 px é criada pelo componentes.js) ==== */
+@font-face { font-family: PlayfairItalic; src: url(fonts/PlayfairDisplay-Italic-VF.ttf); font-style: italic; font-weight: 400 900; }
+@font-face { font-family: Fjalla; src: url(fonts/FjallaOne-Regular.ttf); }
+@font-face { font-family: Poppins; src: url(fonts/Poppins-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: Poppins; src: url(fonts/Poppins-Bold.ttf); font-weight: 700; }
+@font-face { font-family: Poppins; src: url(fonts/Poppins-Black.ttf); font-weight: 900; }
+@font-face { font-family: TimesInv; src: url(fonts/TimesInv.ttf); }
+@font-face { font-family: TimesInv; src: url(fonts/TimesInvB.ttf); font-weight: 700; }
+@font-face { font-family: TimesInv; src: url(fonts/TimesInvI.ttf); font-style: italic; }
+#cap { display: none !important; }
+#prog { display: none !important; }
+#grain { display: block !important; position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; mix-blend-mode: overlay; background-size: 256px 256px; }
+#vig { opacity: 0; background: radial-gradient(ellipse 82% 68% at 50% 46%, rgba(0,0,0,0) 50%, rgba(0,0,0,.72) 100%) !important; }
+.eamk { border-radius: 3px; }

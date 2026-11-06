@@ -1,0 +1,12 @@
+/* ==== edit-founded: fontes, legenda no MEIO (serifa itálica + sans pesado), grão e vinheta por cena, sem barra ==== */
+@font-face { font-family: TimesInv; src: url(fonts/TimesInv.ttf); }
+@font-face { font-family: TimesInv; src: url(fonts/TimesInvI.ttf); font-style: italic; }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-400-normal.woff2); font-weight: 400; }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-800-normal.woff2); font-weight: 800; }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-900-normal.woff2); font-weight: 900; }
+#cap { position: absolute; z-index: 5; left: 540px; top: 975px; transform: translate(-50%, -50%); color: #fff;
+  background: none !important; box-shadow: none !important; padding: 0 !important; opacity: 0; text-transform: none; }
+#cap span { padding: 0; border-radius: 0; }
+#prog { display: none !important; }
+#grain { display: block !important; position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; mix-blend-mode: overlay; background-size: 256px 256px; }
+#vig { opacity: 0; background: radial-gradient(ellipse 85% 70% at 50% 48%, rgba(0,0,0,0) 55%, rgba(0,0,0,.6) 100%) !important; }

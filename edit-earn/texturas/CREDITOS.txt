@@ -1,0 +1,14 @@
+Texturas padrão do formato edit-earn (copiadas para todo projeto pelo preparar_earn.py)
+
+f_mesa_madeira.jpg  "Weatherworn top of wooden table.jpg", W.carter, Wikimedia Commons, CC0 (domínio público)
+                    https://commons.wikimedia.org/wiki/File:Weatherworn_top_of_wooden_table.jpg
+f_tv_familia.jpg    "Family watching television 1958.jpg", Evert F. Baumgardner (National Archives / NARA), Wikimedia Commons, domínio público
+                    https://commons.wikimedia.org/wiki/File:Family_watching_television_1958.jpg
+                    Tela da TV nesta imagem (2600x2549): x 1147–1387, y 1280–1486  ->  salaTV({tela: [1147, 1280, 1387, 1486]})
+
+Vindos do projeto After Effects da EarnEdits ("Siberia's mysterious lab death", comprado/baixado pelo Felipe em 31/10/2026):
+ea_grade.png        "Overlay Texture 02.png" (grade de 6 px) com o Tint do projeto já aplicado (branco -> 209,232,255). Usar em soft light a 70%.
+ea_ruido.png        "Noise.png" (grão parado). Soft light 100%.
+mattes/<nome>/NN.png  as 10 mattes de transição do projeto (Center, Center Liquid, INK LR, INK LR 2, INK Spot, INK UD Digonal, Round,
+                    Three Liquid, UP 1, UP 2), só o trecho da transição, 270x480, alfa = luminância.
+Uso: nos vídeos do Felipe. Não redistribuir fora da equipe sem conferir a licença da EarnEdits.

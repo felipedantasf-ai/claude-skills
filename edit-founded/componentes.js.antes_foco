@@ -1,0 +1,520 @@
+// ============================================================================
+//  edit-founded — biblioteca do formato "história de fundador" (referência: canal FOUNDED, TikTok/Reels, Monster Energy, out/2026)
+//  1ª parte do render/scenes.js (work/<prefixo>_a.js). Precisa do motor do Kit_Edicao_Vox_v2.
+//
+//  Narração com imagens; o apresentador aparece 10–15 vezes por 2–4 s (tela cheia ou num círculo), o resto é só imagem. Uma imagem em tela cheia por palavra forte (~100 trocas/min, plano de ~0,5 s),
+//  cor de cinema (quente, saturada), legenda no MEIO da tela misturando serifa itálica e sans pesado, palavra por palavra.
+//   1. rajada de planos (foto ou trecho de vídeo), corte seco a cada palavra forte          rajada(), rajadaAuto()
+//   2. cartão branco ou vermelho com a frase (anos, viradas: "1989,", "he found one.")     cartaoCor()
+//   3. faixa letterbox 16:9 no meio, preto em cima e embaixo (vídeo largo)                  faixa()
+//   4. tríptico: 3 painéis empilhados que entram um a um                                     tripla()
+//   5. produto girando sobre fundo escuro com a marca                                        produtoGira()
+//   6. gráfico de alta: produto + linha verde subindo + % em serifa itálica                  alta()
+//   7. print de site/loja descendo                                                           siteCor()
+//   8. final: tela preta com a marca de quem fala                                            fimMarca()
+//   9. apresentador 10–15 vezes, 2–4 s, em tela cheia ou num círculo sobre as imagens       presFD()
+//  10. motor golpe (02/11/2026, portado da vox-edit2, A/B aprovado): toda imagem chega com a curva do chicote medida nas refs
+//      (não com E.out), câmera sempre viva (deriva + mão), chicote com blur direcional nas emendas entre cenas de imagem
+//      e cartões, mola nas entradas, tranco nos impactos. window.FD_MOTOR = 'antigo' volta ao movimento de antes.
+// ============================================================================
+const FD = { branco: '#fcfcfc', vermelho: '#f2212d', preto: '#050505', verde: '#29e33a', tinta: '#111111' };
+const FD_SERIF = 'TimesInv', FD_SANS = 'Inter', FD_CX = .86;
+// palavras de ligação (ficam em serifa itálica). Por vídeo: FD_ITALICO.add('juice'); para forçar sans: FD_FORTE.add('12')
+const FD_ITALICO = new Set(('a o as os um uma uns umas de do da dos das em no na nos nas num numa e que para pra por pelo pela pelos pelas ' +
+  'com sem se ao aos ja so mas ou nem me te lhe eu ele ela eles elas voce isso esse essa este esta isto foi era sao tem ha ate mais muito ' +
+  'como quando onde quem qual seu sua seus suas nosso nossa la ca ai tao tambem nao ainda depois entao hoje anos ano quase cerca apenas so ' +
+  'the of and in on at to a an with for from his her its was were is are had has by just this that then into nearly about').split(' '));
+const FD_FORTE = new Set();
+const fdItal = w => { const n = norm(w.w); return !FD_FORTE.has(n) && (FD_ITALICO.has(n) || /^\$?[\d.,]+$/.test(w.w.replace(/[,.]$/, '')) && FD_ITALICO.has('#num')); };
+
+// ---------- grão e vinheta por cena (S.grao, S.vig) ----------
+let _fdGrao = null;
+function fdGraoTex() {
+  if (_fdGrao) return _fdGrao;
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const x = c.getContext('2d'), im = x.createImageData(256, 256);
+  for (let i = 0; i < im.data.length; i += 4) { const v = 128 + (Math.random() - .5) * 70; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+  x.putImageData(im, 0, 0);
+  return (_fdGrao = c.toDataURL());
+}
+const _fdC = document.createElement('canvas').getContext('2d');
+function fdLarg(txt, px, fam, peso = 400, estilo = 'normal') { _fdC.font = `${estilo} ${peso} ${px}px ${fam}`; return _fdC.measureText(txt).width; }
+
+// ---------- legenda: palavra por palavra, frase de até 3 palavras, serifa itálica + sans pesado, no MEIO da tela ----------
+let FD_BLOCOS = null;
+function fdBlocos() {
+  if (FD_BLOCOS) return FD_BLOCOS;
+  const all = []; TIMING.beats.forEach(b => b.words.forEach(w => all.push(w)));
+  const cortes = SCENES.map(x => x.t0).filter(t => t > 0);
+  const L = []; let cur = [];
+  const push = () => { if (cur.length) L.push({ words: cur }); cur = []; };
+  all.forEach((w, j) => {
+    if (cur.length && cortes.some(ct => ct > cur[cur.length - 1].s + .05 && ct <= w.s + .2)) push();   // cena nova zera a frase
+    const txt = cur.map(x => x.w).join(' ');
+    if (cur.length >= 3 || (cur.length && txt.length + w.w.length > 19)) push();
+    cur.push(w);
+    if (/[.;:?!,]$/.test(w.w)) push();
+  });
+  push();
+  L.forEach(c => { c.s = c.words[0].s - .02; });
+  L.forEach((c, i) => {
+    const nx = L[i + 1], fim = c.words[c.words.length - 1].e, ult = c.words[c.words.length - 1].s;
+    const ct = cortes.find(t => t > ult + .05);
+    c.e = Math.min(nx ? nx.s : fim + .6, fim + .5, ct ?? 1e9);
+  });
+  return (FD_BLOCOS = L);
+}
+let _fdKey = '';
+renderCaptions = function (t) {
+  const box = $('cap'), S = (window.CUR_SCENE && CUR_SCENE.S) || {};
+  const cfg = typeof S.cap === 'function' ? S.cap(t - CUR_SCENE.t0) : (S.cap || {});
+  const gr = $('grain'), vg = $('vig');
+  if (gr) { if (!gr._ok) { gr.style.backgroundImage = `url(${fdGraoTex()})`; gr._ok = 1; } gr.style.opacity = (S.grao ?? .14).toFixed(3); }
+  if (vg) vg.style.opacity = (S.vig ?? .35).toFixed(3);
+  if (cfg.modo === 'none') { box.style.opacity = 0; return; }
+  const L = fdBlocos();
+  let idx = -1;
+  for (let i = 0; i < L.length; i++) if (t >= L[i].s && t < L[i].e) { idx = i; break; }
+  if (idx < 0) { box.style.opacity = 0; return; }
+  const ws = L[idx].words, s = cfg.s ?? 64, cor = cfg.cor ?? '#ffffff';
+  const key = `${idx}|${s}|${cor}`;
+  if (key !== _fdKey) {
+    _fdKey = key;
+    box.className = 'fd-cap';
+    box.style.cssText = `position:absolute;z-index:5;opacity:1;background:none;box-shadow:none;padding:0;text-align:center;line-height:.98;` +
+      `width:${cfg.larg ?? 620}px;color:${cor};text-shadow:${cor === '#ffffff' ? '0 2px 12px rgba(0,0,0,.45), 0 0 2px rgba(0,0,0,.35)' : 'none'};white-space:normal;`;
+    box.innerHTML = '';
+    box._sp = ws.map((w, i) => {
+      const it = fdItal(w), txt = w.w;
+      let sp;
+      if (it) {      // serifa itálica condensada (Times a 86%), um pouco maior que a sans
+        const px = Math.round(s * 1.08), lw = fdLarg(txt, px, FD_SERIF, 400, 'italic') * FD_CX;
+        sp = el(box, 'span', `display:inline-block;width:${lw.toFixed(1)}px;white-space:nowrap;vertical-align:baseline;`);
+        el(sp, 'span', `display:inline-block;transform:scaleX(${FD_CX});transform-origin:0 50%;font-family:${FD_SERIF};font-style:italic;font-weight:400;font-size:${px}px;letter-spacing:-.01em;`, esc(txt));
+      } else sp = el(box, 'span', `display:inline-block;font-family:${FD_SANS};font-weight:800;font-size:${s}px;letter-spacing:-.045em;`, esc(txt));
+      if (i < ws.length - 1) sp.style.marginRight = `${(s * .22).toFixed(1)}px`;
+      sp._w = w; return sp;
+    });
+  }
+  box._sp.forEach(sp => { const q = clamp((t - (sp._w.s - .02)) / .06); sp.style.opacity = q.toFixed(3); });   // entra seco (2 quadros)
+  box.style.left = `${cfg.x ?? 540}px`; box.style.top = `${cfg.y ?? 975}px`;
+  box.style.transform = `translate(calc(-50% + ${(cfg.dx ?? 0).toFixed(1)}px),calc(-50% + ${(cfg.dy ?? 0).toFixed(1)}px))`;   // dx/dy: entrada com mola no cartão
+  box.style.opacity = 1;
+};
+
+// ---------- cor de cinema (quente, saturada, preto denso) aplicada em cada plano ----------
+const FD_COR = 'saturate(1.14) contrast(1.08) brightness(.97)';
+// retícula suave: nas FOTOS ela já vem gravada pelo imagens.py; nos vídeos entra esta trama de pontos por cima (window.FD_RETICULA_VIDEO)
+let _fdTrama = null;
+function fdTrama() {
+  if (_fdTrama) return _fdTrama;
+  const c = document.createElement('canvas'); c.width = c.height = 12; const x = c.getContext('2d');
+  x.fillStyle = '#fff'; x.fillRect(0, 0, 12, 12); x.fillStyle = '#000';
+  [[3, 3], [9, 9]].forEach(([a, b]) => { x.beginPath(); x.arc(a, b, 1.9, 0, Math.PI * 2); x.fill(); });
+  return (_fdTrama = c.toDataURL());
+}
+
+// ---------- motor golpe (02/11/2026) ----------
+// Medição: as refs do Felipe (earn.edits) andam a ~11 px/quadro com chicotes de blur; a demo v6 andava a 3,5 px/q com o
+// E.out (metade do caminho em 27% do tempo = arranque seco e cauda longa). Aqui o formato já troca de imagem a cada ~0,5 s,
+// então o motor não põe mais cortes: muda COMO cada plano anda e COMO as cenas emendam.
+//   - curva golpe: a velocidade começa a ~45% do pico, chega ao pico em 20% do tempo e desliza até zero (metade do caminho
+//     em 36%); mola: passa ~9% do ponto e assenta. As duas iguais às da vox-edit2 (E2C.golpe / E2C.mola).
+//   - cada plano: aproximação forte e curta com a curva golpe (foto 1,03 → 1,15 em .7 s; vídeo 1,03 → 1,09) + deriva contínua
+//     (zoom .035/s) + câmera na mão (4 px): nunca para.
+//   - chicote na emenda: a cena de imagem sai acelerando no sentido do chicote nos últimos .2 s (zoom +40% e desliza pela sobra
+//     da imagem, sem mostrar borda) e a seguinte CHEGA do lado oposto no mesmo sentido em .4 s. Blur direcional (SVG) só
+//     acima de ~10 px/quadro. Automático entre cenas de imagem e cartões; o apresentador e o final ficam em corte seco.
+//   - tranco: trancos: [[t, 6–10 px]] na cena (impacto, número, nome que pousa).
+const fdMotor = () => (window.FD_MOTOR ?? 'golpe') === 'golpe';
+const _fdGT = (() => {
+  const N = 200, v = [], p = [0];
+  for (let i = 0; i <= N; i++) { const u = i / N, a = u / .2; v.push(u < .2 ? .45 + .55 * a * a * (3 - 2 * a) : Math.pow(1 - (u - .2) / .8, 2.2)); }
+  for (let i = 1; i <= N; i++) p.push(p[i - 1] + (v[i - 1] + v[i]) / 2);
+  return p.map(x => x / p[N]);
+})();
+const _fdMol1 = 1 - Math.exp(-6) * Math.cos(8);
+const FDG = {
+  golpe: u => { u = clamp(u); const f = u * 200, i = Math.min(199, Math.floor(f)); return lerp(_fdGT[i], _fdGT[i + 1], f - i); },
+  mola: u => { u = clamp(u); return u >= 1 ? 1 : (1 - Math.exp(-6 * u) * Math.cos(8 * u)) / _fdMol1; },
+};
+function fdWig(t, f, a, sem = 0) {              // wiggle(f, a) do AE: ruído suave
+  const x = t * f + sem * 17.31, i = Math.floor(x), u = x - i, q = u * u * u * (u * (u * 6 - 15) + 10);
+  const v = k => hrand(k * 1.618 + sem * 7.77) * 2 - 1; return a * lerp(v(i), v(i + 1), q);
+}
+const FD_DIR = { esq: [-1, 0], dir: [1, 0], cima: [0, -1], baixo: [0, 1] };
+const FD_CHIC_SAI = .2, FD_CHIC_LONGO = .6, FD_CHIC_CHEGA = .4, FD_CHIC_ZOOM = .4;
+function fdTranco(lt, L) {                      // tranco de câmera: [[t, amp]] -> deslocamento que some em ~.5 s
+  let x = 0, y = 0;
+  for (const [t, a] of (L || [])) { const u = lt - t; if (u < 0 || u > .6) continue; const s = a * Math.exp(-u * 9); x += s * Math.sin(u * 55); y += s * .8 * Math.cos(u * 47); }
+  return { x, y };
+}
+// blur direcional por elemento (um filtro SVG para cada, porque o tríptico mostra 3 ao mesmo tempo)
+let _fdMbN = 0;
+function fdBorra(e) {
+  const id = `fdmb${_fdMbN++}`, sv = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  sv.setAttribute('width', '0'); sv.setAttribute('height', '0'); sv.style.position = 'absolute';
+  sv.innerHTML = `<filter id="${id}" x="-5%" y="-5%" width="110%" height="110%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="0 0" edgeMode="duplicate"/></filter>`;
+  document.body.appendChild(sv);
+  const gb = sv.querySelector('feGaussianBlur');
+  return (vx, vy, rad = 0) => {                   // velocidades em px de tela por quadro
+    const sx = Math.min(28, Math.max(0, vx + rad * .5 - 10) * .45), sy = Math.min(28, Math.max(0, vy + rad * .5 - 10) * .45);
+    if (sx + sy < 1.2) { if (e.style.filter) e.style.filter = ''; return; }
+    gb.setAttribute('stdDeviation', `${sx.toFixed(1)} ${sy.toFixed(1)}`); e.style.filter = `url(#${id})`;
+  };
+}
+// direção do chicote na emenda entre a cena k e a k+1 (null = corte seco). Só entre cenas de imagem e cartões; cena com
+// chicote: false não chicoteia; chicote: 'esq'|'dir'|'cima'|'baixo' escolhe o sentido (o conteúdo anda para esse lado).
+const FD_CHIC_SEQ = ['esq', 'dir', 'cima', 'esq', 'baixo', 'dir'];
+function fdChicEmenda(k) {
+  if (!fdMotor()) return null;
+  const a = SCENES[k], b = SCENES[k + 1];
+  if (!a || !b || a.fdChic === false || b.fdChic === false) return null;
+  const ok = x => x.fdTipo === 'img' || x.fdTipo === 'cartao';
+  if (!ok(a) || !ok(b) || (a.fdTipo === 'cartao' && b.fdTipo === 'cartao')) return null;
+  return typeof b.fdChic === 'string' ? b.fdChic : FD_CHIC_SEQ[(b.k ?? k + 1) % FD_CHIC_SEQ.length];
+}
+const fdCenaK = c => SCENES.findIndex(s => s.ctx === c);
+// chegada e saída em chicote da cena atual: {chega: dir|null, sai: {t, dir}|null}
+function fdChicCena(c) { const k = fdCenaK(c); return { chega: k > 0 ? fdChicEmenda(k - 1) : null, sai: fdChicEmenda(k) ? { t: c.dur, dir: fdChicEmenda(k) } : null }; }
+
+// ---------- plano: foto (asset) ou trecho de vídeo ('clip:nome', render/clips/<nome>/0001.jpg a 30 fps) cobrindo a área ----------
+// fdPlano(p, fonte, S, {w, h, mov: 'sai' | 'entra' | 'esq' | 'dir' | 'sobe' | 'fixo', z: .1 (quanto de zoom), fx, fy, from, rate, t0, dur})
+//   MESCLA foto + vídeo (pedido do Felipe, 30/10): ~60% foto (pessoa, lugar, logo, documento) e ~40% vídeo (ação), intercalados.
+//   Foto: padrão 'entra' (aproxima ~7% com desaceleração; 'sai' abre devagar). Vídeo: aproximação leve (4%) + trama de retícula
+//   por cima, para os dois tipos terem a mesma textura.
+function fdPlano(p, fonte, S, o = {}) {
+  const Wc = o.w ?? 1080, Hc = o.h ?? 1920;
+  const g = el(p, 'div', `position:absolute;left:0;top:0;width:${Wc}px;height:${Hc}px;overflow:hidden;background:#000;`);
+  const img = el(g, 'img', `position:absolute;left:0;top:0;transform-origin:0 0;filter:${o.cor === false ? 'none' : FD_COR};`);
+  img.decoding = 'sync';
+  const ehClip = fonte.startsWith('clip:'), nome = ehClip ? fonte.slice(5) : fonte;
+  if (!ehClip) { const a = AS(nome); if (!a) throw new Error(`asset ${nome} não existe`); img.src = a.src; g.iw = a.w; g.ih = a.h; }
+  g.t0 = o.t0 ?? 0; g.cur = -1; g.n = ehClip ? ((window.CLIPN && CLIPN[nome]) ?? 60) : 1;
+  const mov = o.mov ?? 'entra', dur = o.dur ?? 1.0, G = fdMotor() && o.motor !== false;
+  const z = o.z ?? (G ? (ehClip ? .06 : .12) : (ehClip ? .04 : .07));
+  if (ehClip && (window.FD_RETICULA_VIDEO ?? .16) > 0) el(g, 'div', `position:absolute;inset:0;pointer-events:none;background:url(${fdTrama()}) 0 0/12px 12px;` +
+    `mix-blend-mode:multiply;opacity:${window.FD_RETICULA_VIDEO ?? .16};`);
+  // motor golpe: pose(lt) = posição da imagem (x, y, escala) em função do tempo da cena; sem estado, para medir a velocidade
+  // entre dois quadros e dar o blur direcional. o.chega = 'esq'|... (chega em chicote), o.sai = {t, dir} (sai em chicote),
+  // o.trancos = [[t, amp]] (tempos da cena), o.dEnt (.7) = duração da aproximação golpe, o.deriva (.035/s), o.mao (4 px)
+  const z0 = .03, dEnt = o.dEnt ?? (o.dur ?? .5), dz = o.deriva ?? .02, mao = o.mao ?? 3, sem = (g.t0 * 7.3 + (o.from ?? 0)) % 50;
+  g.pose = lt => {
+    const l = lt - g.t0, q = FDG.golpe(l / dEnt);
+    let k = mov === 'sai' ? 1 + z0 + z * (1 - q) : mov === 'entra' ? 1 + z0 + z * q : mov === 'fixo' ? 1 + z0 : 1 + z0 + z;
+    k *= Math.exp(dz * Math.max(0, l));
+    let ox = 0, oy = 0;                                   // deslocamento em frações da sobra da imagem (-1..1)
+    if (mov === 'esq') ox = 1 - 2 * q; if (mov === 'dir') ox = -(1 - 2 * q);
+    if (mov === 'sobe') oy = 1 - 2 * q; if (mov === 'desce') oy = -(1 - 2 * q);
+    if (o.chega && FD_DIR[o.chega]) {                     // chega do lado oposto ao sentido do chicote, freando
+      const D = FD_DIR[o.chega], p = 1 - FDG.golpe(l / (o.dChega ?? FD_CHIC_CHEGA));
+      k *= 1 + FD_CHIC_ZOOM * p; ox -= D[0] * p; oy -= D[1] * p;
+    }
+    if (o.sai && FD_DIR[o.sai.dir]) {                     // sai acelerando: começo de um chicote que termina na cena seguinte
+      const D = FD_DIR[o.sai.dir], ls = lt - (o.sai.t - FD_CHIC_SAI);
+      if (ls > 0) { const p = FDG.golpe(ls / FD_CHIC_LONGO) / FDG.golpe(FD_CHIC_SAI / FD_CHIC_LONGO); k *= 1 + FD_CHIC_ZOOM * p; ox += D[0] * p; oy += D[1] * p; }
+    }
+    const k0 = Math.max(Wc / g.iw, Hc / g.ih) * k, w = g.iw * k0, h = g.ih * k0, sx = (w - Wc) / 2, sy = (h - Hc) / 2;
+    const tr = fdTranco(lt, o.trancos);
+    let x = Wc / 2 - (o.fx ?? .5) * w, y = Hc / 2 - (o.fy ?? .5) * h;
+    x = clamp(x, Wc - w, 0); y = clamp(y, Hc - h, 0);
+    x += ox * sx + fdWig(lt, 1.3, mao, sem) + tr.x; y += oy * sy + fdWig(lt, 1.1, mao, sem + 1) + tr.y;
+    return { x: clamp(x, Wc - w, 0), y: clamp(y, Hc - h, 0), k0 };
+  };
+  if (G) g.borra = fdBorra(g);
+  (S.async = S.async || []).push(async lt => {
+    if (g.style.display === 'none') return;
+    if (ehClip) {
+      const f = Math.max(0, Math.min(g.n - 1, Math.round((o.from ?? 0) * 30 + Math.max(0, lt - g.t0) * 30 * (o.rate ?? 1))));
+      if (f !== g.cur) { img.src = `clips/${nome}/${String(f + 1).padStart(4, '0')}.jpg`; try { await img.decode(); } catch (e) { } g.cur = f; }
+      g.iw = img.naturalWidth || 1080; g.ih = img.naturalHeight || 1920;
+    }
+    if (G) {
+      const p = g.pose(lt), a = g.pose(lt - 1 / 30);
+      img.style.width = `${g.iw}px`; img.style.height = `${g.ih}px`;
+      img.style.transform = `translate(${p.x.toFixed(1)}px,${p.y.toFixed(1)}px) scale(${p.k0.toFixed(4)})`;
+      // velocidade do centro da imagem na tela + zoom (bordas fugindo) -> blur na direção do movimento
+      const cx = v => v.x + g.iw * v.k0 / 2, cy = v => v.y + g.ih * v.k0 / 2;
+      g.borra(Math.abs(cx(p) - cx(a)), Math.abs(cy(p) - cy(a)), Math.abs(Math.log(p.k0 / a.k0)) * 700);
+      return;
+    }
+    const u = clamp((lt - g.t0) / dur), q = E.out(u);
+    let k = { sai: 1 + z * (1 - q), entra: 1 + z * q }[mov] ?? (1 + z);
+    const k0 = Math.max(Wc / g.iw, Hc / g.ih) * k, w = g.iw * k0, h = g.ih * k0;
+    let x = Wc / 2 - (o.fx ?? .5) * w, y = Hc / 2 - (o.fy ?? .5) * h;
+    const dx = (w - Wc) / 2 * .9, dy = (h - Hc) / 2 * .9;
+    if (mov === 'esq') x += dx * (1 - 2 * q); if (mov === 'dir') x -= dx * (1 - 2 * q);
+    if (mov === 'sobe') y += dy * (1 - 2 * q); if (mov === 'desce') y -= dy * (1 - 2 * q);
+    x = clamp(x, Wc - w, 0); y = clamp(y, Hc - h, 0);
+    img.style.width = `${g.iw}px`; img.style.height = `${g.ih}px`;
+    img.style.transform = `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) scale(${k0.toFixed(4)})`;
+  });
+  return g;
+}
+
+// ---------- 1. rajada: planos em tela cheia trocando em corte seco ----------
+// rajada(['B03','B04'], [[c => 0, 'f_sacks', {mov:'entra'}], [c => c.w('B04','lawyer'), 'clip:advogado'], ...], {cap})
+// motor golpe: op.chicote = 'esq'|'dir'|'cima'|'baixo' num plano = a passagem do plano anterior para ele é um chicote (use
+// quando a fala pede: virada, "mas", contraste). A emenda com a cena vizinha já chicoteia sozinha (fdChicEmenda).
+// o.trancos = c => [[t, amp]]: tranco de câmera nos impactos. o.chicote: false = sem chicote nas emendas desta cena.
+function fdListaPlanos(c, lista, o) {
+  const tr = o.trancos ? o.trancos(c) : null, ch = fdChicCena(c);
+  const L = lista.map(([tf, fonte, op = {}]) => ({ t: typeof tf === 'function' ? tf(c) : tf, fonte, op: { ...op } }));
+  L.forEach((p, i) => {
+    if (tr) p.op.trancos = p.op.trancos || tr;
+    if (i > 0 && p.op.chicote && fdMotor()) { p.op.chega = p.op.chicote; L[i - 1].op.sai = { t: p.t, dir: p.op.chicote }; }
+  });
+  if (L.length && ch.chega && !L[0].op.chega) L[0].op.chega = ch.chega;
+  if (L.length && ch.sai) L[L.length - 1].op.sai = ch.sai;
+  return L;
+}
+function rajada(beats, lista, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead, fdTipo: 'img', fdChic: o.chicote,
+    build(r, S, c) {
+      S.planos = fdListaPlanos(c, lista, o).map(({ t, fonte, op }) => {
+        const g = fdPlano(r, fonte, S, { ...op, t0: t }); g.style.display = 'none'; g._t = t; return g;
+      });
+      S.planos[0]._t = Math.min(S.planos[0]._t, 0);
+      S.cap = o.cap ?? {}; S.grao = o.grao ?? .14; S.vig = o.vig ?? .35;
+      if (o.build) o.build(r, S, c);
+    },
+    update(S, c) {
+      let k = 0; S.planos.forEach((g, i) => { if (c.lt >= g._t) k = i; });
+      S.planos.forEach((g, i) => { g.style.display = i === k ? 'block' : 'none'; });
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+// rajadaAuto(beats, ['f_a', 'clip:b', ['f_c', {mov:'entra'}], ...]) — troca de plano em cada palavra FORTE (não itálica) com ≥ .3 s
+//   (ou em qualquer palavra se o plano já passou de .6 s)
+//   de distância (a referência troca a cada ~0,5 s). Fontes a mais são ignoradas; a menos: o último plano segue até o fim.
+function fdTrocas(c, beats, min = .3) {   // referência: ~101 trocas/min, plano médio 0,59 s, mediana 0,5 s
+  const ws = beats.flatMap(id => BYID[id].words);
+  const ts = [0];
+  ws.forEach(w => { const t = w.s - c.t0 - .03, dt = t - ts[ts.length - 1]; if ((!fdItal(w) && dt >= min) || dt >= .6) ts.push(t); });
+  return ts;
+}
+function rajadaAuto(beats, fontes, o = {}) {
+  rajada(beats, fontes.map((f, i) => [c => (o.trocas ? o.trocas(c) : fdTrocas(c, beats, o.min))[i] ?? 1e9, ...(Array.isArray(f) ? f : [f])])
+    .slice(0, fontes.length), o);
+}
+
+// ---------- 2. cartão branco / vermelho com a frase (anos, viradas). Legenda escura no branco, branca no vermelho ----------
+// Na referência o cartão dura 0,7–1,5 s: frase mais longa = parte em rajada, parte no cartão.
+function cartaoCor(beats, o = {}) {
+  const verm = o.cor === 'vermelho';
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead, fdTipo: 'cartao', fdChic: o.chicote,
+    build(r, S, c) {
+      el(r, 'div', `position:absolute;inset:0;background:${verm ? FD.vermelho : FD.branco};`);
+      const cap = { cor: verm ? '#ffffff' : FD.tinta, s: o.s ?? 60 }, ch = fdChicCena(c).chega;
+      // motor golpe: cartão liso não mostra movimento; quem chega em chicote é a frase (110 px, mola em .45 s), e depois fica
+      // PARADA para ser lida (o cartão inteiro tem ≥ .7 s)
+      S.cap = ch ? lt => { const p = 1 - FDG.mola(lt / .45), D = FD_DIR[ch]; return { ...cap, dx: -D[0] * 110 * p, dy: -D[1] * 110 * p }; } : cap;
+      S.grao = .06; S.vig = 0;
+      if (o.build) o.build(r, S, c);
+    },
+    update(S, c) { if (o.update) o.update(S, c); },
+  });
+}
+
+// ---------- 3. faixa letterbox 16:9 no meio (vídeo largo: noticiário, entrevista) ----------
+// faixa(beats, [[t, fonte, op], ...] | fonte, {h: 608}) — preto em cima e embaixo; legenda dentro da faixa
+function faixa(beats, lista, o = {}) {
+  const L_ = Array.isArray(lista) ? lista : [[0, lista, {}]];
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead, fdTipo: 'img', fdChic: o.chicote,
+    build(r, S, c) {
+      el(r, 'div', 'position:absolute;inset:0;background:#000;');
+      const h = o.h ?? 608, box_ = el(r, 'div', `position:absolute;left:0;top:${960 - h / 2}px;width:1080px;height:${h}px;overflow:hidden;`);
+      S.planos = fdListaPlanos(c, L_, o).map(({ t, fonte, op }) => {
+        const g = fdPlano(box_, fonte, S, { mov: 'entra', z: fdMotor() ? .14 : .05, ...op, t0: t, w: 1080, h }); g.style.display = 'none'; g._t = t; return g;
+      });
+      S.planos[0]._t = Math.min(S.planos[0]._t, 0);
+      S.cap = o.cap ?? { s: 58 }; S.grao = .14; S.vig = 0;
+    },
+    update(S, c) {
+      let k = 0; S.planos.forEach((g, i) => { if (c.lt >= g._t) k = i; });
+      S.planos.forEach((g, i) => { g.style.display = i === k ? 'block' : 'none'; });
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- 4. tríptico: 3 painéis 1080x640 empilhados, entram um a um (0,15 s) ----------
+// tripla(beats, ['f_a', 'clip:b', 'f_c'], {ts: c => [0, .15, .3]})
+function tripla(beats, fontes, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead, fdTipo: 'img', fdChic: o.chicote,
+    build(r, S, c) {
+      el(r, 'div', 'position:absolute;inset:0;background:#000;');
+      const ts = o.ts ? o.ts(c) : [0, .15, .3], G = fdMotor(), ch = G ? fdChicCena(c) : {}, tr = o.trancos ? o.trancos(c) : null;
+      S.pn = fontes.map((f, i) => {
+        const [fonte, op] = Array.isArray(f) ? f : [f, {}];
+        const box_ = el(r, 'div', `position:absolute;left:0;top:${i * 640}px;width:1080px;height:640px;overflow:hidden;opacity:0;`);
+        fdPlano(box_, fonte, S, { mov: 'entra', z: .08, ...(ch.sai ? { sai: ch.sai } : {}), ...(tr ? { trancos: tr } : {}), ...op, t0: ts[i], w: 1080, h: 640 }); box_._t = ts[i];
+        // motor golpe: cada painel desliza de um lado (alternando; o 1º vem do lado do chicote da emenda) com mola em .45 s
+        if (G) { box_._lado = i === 0 && ch.chega ? -(FD_DIR[ch.chega][0] || 1) : (i % 2 ? -1 : 1); box_._borra = fdBorra(box_); }
+        return box_;
+      });
+      S.cap = o.cap ?? {}; S.grao = .14; S.vig = .2;
+    },
+    update(S, c) {
+      S.pn.forEach(b => {
+        b.style.opacity = c.lt >= b._t ? 1 : 0;
+        if (b._lado === undefined) return;
+        const x = l => b._lado * 1080 * (1 - FDG.mola((l - b._t) / .45));
+        b.style.transform = `translateX(${x(c.lt).toFixed(1)}px)`;
+        b._borra(c.lt >= b._t ? Math.abs(x(c.lt) - x(Math.max(b._t, c.lt - 1 / 30))) : 0, 0);
+      });
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- 5. produto girando sobre fundo escuro com a marca repetida em relevo ----------
+// produtoGira(beats, 'p_lata', {marca: 'MONSTER', w: 330}) — recorte do produto (imagens.py modo produto)
+function produtoGira(beats, nome, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      el(r, 'div', 'position:absolute;inset:0;background:radial-gradient(ellipse 70% 55% at 50% 48%, #2a2a2a, #121212 70%, #070707);');
+      if (o.marca) for (let i = 0; i < 6; i++) el(r, 'div', `position:absolute;left:-60px;top:${-40 + i * 360}px;width:1200px;text-align:center;font-family:${FD_SANS};` +
+        `font-weight:900;font-size:150px;letter-spacing:.06em;color:rgba(255,255,255,.07);white-space:nowrap;text-shadow:0 2px 0 rgba(0,0,0,.6);`, esc(o.marca));
+      const a = AS(nome); if (!a) throw new Error(`asset ${nome} não existe`);
+      const w = o.w ?? 330, h = w * a.h / a.w;
+      S.p = el(r, 'img', `position:absolute;left:${540 - w / 2}px;top:${960 - h / 2}px;width:${w}px;filter:drop-shadow(0 30px 40px rgba(0,0,0,.7)) ${FD_COR};`);
+      S.p.src = a.src;
+      S.cap = o.cap ?? { y: 1500 }; S.grao = .12; S.vig = .5;
+    },
+    update(S, c) {
+      const lt = c.lt, a = Math.sin(lt * 2.2) * .5;
+      S.p.style.transform = `translateY(${(Math.sin(lt * 1.6) * 18).toFixed(1)}px) rotate(${(Math.sin(lt * 1.3) * 8).toFixed(2)}deg) scaleX(${(.82 + .18 * Math.cos(a)).toFixed(3)})`;
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- 6. gráfico de alta: produto no centro, linha verde em degraus subindo, % em serifa itálica contando ----------
+// alta(beats, {produto: 'p_lata', marca: 'MONSTER', valores: [56, 722, 1389, 2056, 2722, 3000] (ou textos), suf: '%', ts: c => [...], fonte: 'texto pequeno'})
+function alta(beats, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      el(r, 'div', 'position:absolute;inset:0;background:radial-gradient(ellipse 70% 55% at 50% 50%, #262626, #101010 75%);');
+      if (o.marca) for (let i = 0; i < 6; i++) el(r, 'div', `position:absolute;left:-60px;top:${-40 + i * 360}px;width:1200px;text-align:center;font-family:${FD_SANS};` +
+        `font-weight:900;font-size:150px;letter-spacing:.06em;color:rgba(255,255,255,.06);white-space:nowrap;`, esc(o.marca));
+      const svg = svgAbs(r, 0, 0, W, H);
+      let x = -20, y = 1500, d = `M${x},${y}`;
+      for (let i = 0; i < 9; i++) { y -= 70 + hrand(i + 3) * 70; d += ` L${x},${y}`; x += 90 + hrand(i * 2.3) * 50; d += ` L${x},${y}`; }
+      S.linha = prep(sv(svg, 'path', { d, fill: 'none', stroke: FD.verde, 'stroke-width': 30, 'stroke-linejoin': 'miter', 'stroke-linecap': 'square' }));
+      S.linha.style.filter = 'drop-shadow(0 0 14px rgba(41,227,58,.45))';
+      if (o.produto) { const a = AS(o.produto); const w = o.w ?? 300, h = w * a.h / a.w;
+        S.p = el(r, 'img', `position:absolute;left:${540 - w / 2}px;top:${1020 - h / 2}px;width:${w}px;filter:drop-shadow(0 26px 34px rgba(0,0,0,.75)) ${FD_COR};`); S.p.src = a.src; }
+      S.num = el(r, 'div', `position:absolute;left:540px;top:560px;transform:translate(-50%,-50%);white-space:nowrap;color:#fff;text-shadow:0 2px 14px rgba(0,0,0,.5);`);
+      S.ts = o.ts ? o.ts(c) : o.valores.map((_, i) => .25 + i * (Math.max(1, c.dur - .6) / o.valores.length));
+      S.ultimo = '';
+      (o.valores || []).forEach((_, i) => cue(c, 'flap', S.ts[i], { g: .16, n: 3 }));
+      if (o.fonte) el(r, 'div', `position:absolute;left:540px;top:1480px;transform:translateX(-50%);width:900px;text-align:center;font-family:${FD_SANS};font-weight:400;` +
+        `font-size:28px;color:rgba(255,255,255,.62);`, esc(o.fonte));                     // dado na tela = fonte e data (regra do kit)
+      S.cap = { modo: 'none' }; S.grao = .1; S.vig = .45;
+    },
+    update(S, c) {
+      const lt = c.lt; let k = -1; S.ts.forEach((t, i) => { if (lt >= t) k = i; });
+      draw(S.linha, clamp(lt / Math.max(.5, S.ts[S.ts.length - 1] + .3)));
+      const txt = k < 0 ? '' : `${o.valores[k]}${o.suf ?? '%'}.`;
+      if (txt !== S.ultimo) { S.ultimo = txt; S.num.innerHTML = '';
+        if (txt) { const px = o.s ?? 130, lw = fdLarg(txt, px, FD_SERIF, 400, 'italic') * FD_CX;
+          const sp = el(S.num, 'span', `display:inline-block;width:${lw.toFixed(1)}px;`); el(sp, 'span', `display:inline-block;transform:scaleX(${FD_CX});transform-origin:0 50%;font-family:${FD_SERIF};font-style:italic;font-size:${px}px;`, esc(txt)); } }
+      if (S.p) S.p.style.transform = `scale(${(1 + .04 * clamp(lt / c.dur)).toFixed(4)})`;
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- 7. print de site/loja em cor, descendo (pagina.py --cor -> d_<nome>.jpg) ----------
+// siteCor(beats, 'd_loja', {y0: 0, y1: .25 (fração da página onde termina), cap})
+function siteCor(beats, nome, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      el(r, 'div', 'position:absolute;inset:0;background:#f4f4f4;');
+      const a = AS(nome); if (!a) throw new Error(`asset ${nome} não existe (pagina.py --cor)`);
+      S.w = o.w ?? 1080; S.h = S.w * a.h / a.w;
+      S.img = el(r, 'img', `position:absolute;left:${540 - S.w / 2}px;top:0;width:${S.w}px;`); S.img.src = a.src;
+      S.cap = o.cap ?? { y: 1500, cor: FD.tinta }; S.grao = .05; S.vig = .15;
+    },
+    update(S, c) {
+      const u = E.inOut(clamp(c.lt / Math.max(.8, c.dur))), y = lerp(o.y0 ?? 0, o.y1 ?? .2, u) * S.h;
+      S.img.style.transform = `translateY(${(-y).toFixed(1)}px) scale(${(1 + .05 * u).toFixed(4)})`;
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- 9. apresentador: 10–15 aparições de 2–4 s, em TELA CHEIA ou num CÍRCULO sobre as imagens da história ----------
+// presFD(beats, {forma: 'cheia' | 'circulo', fundo: ['f_x', 'clip:y', ...] (círculo: trocam nas palavras fortes, como a rajada),
+//               z: 1.0, punch: 1.08 (zoom no meio da fala), fy: .40, capY,
+//               círculo: d: 640 (diâmetro), cx: 540, cy: 620 (centro), aro: '#fcfcfc'})
+//   O apresentador fica LIMPO (pedido do Felipe, 30/10): sem os efeitos das fotos (retícula, cor de cinema, grão, vinheta,
+//   aproximação lenta). Só o punch-in seco numa palavra forte.
+//   cheia: o vídeo do apresentador em tela cheia, com punch-in na 1ª palavra forte depois de ~1 s. Legenda no peito (y 1440), nunca no rosto.
+//   circulo: a foto/vídeo da história em tela cheia atrás (aproxima e troca como numa rajada) e o apresentador num círculo com
+//           aro branco e sombra na metade de cima; o círculo entra com um pop curto. Legenda logo abaixo (y = cy + d/2 + 190).
+//           z/fy enquadram cabeça e ombros (plano aberto da Thainá: z 1.7, fy .42).
+//   Só use janelas em que ele OLHA para a câmera (regra do Felipe). Com avatar do HeyGen: só dentro das peças do apresentador.json.
+function presFD(beats, o = {}) {
+  const forma = o.forma ?? 'cheia';
+  scene({
+    beats, tr: 'cut', bg: 'dark', presenter: true, camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      const ts = fdTrocas(c, beats, .9), tp = ts.find(t => t > 1.0) ?? 1e9;          // punch-in numa palavra forte depois de ~1 s
+      const zoom = lt => (o.z ?? 1) * lerp(1, o.punch ?? 1.08, fdMotor() ? FDG.golpe((lt - tp) / .3) : E.out5(clamp((lt - tp) / .18)));
+      if (forma === 'cheia') {
+        S.ph = photo(r, -40, -30, 1160, 1980, { border: 0, tape: false, fy: o.fy ?? .40 });
+        S.photos.push(S.ph); S.ph.zoomFn = lt => zoom(lt);
+        S.cap = o.cap ?? { y: o.capY ?? 1440 }; S.vig = 0;
+      } else {
+        const fundos = (o.fundo || ['f_fundo']).map(f => Array.isArray(f) ? f : [f, {}]);
+        S.planos = fundos.map(([fonte, op], i) => { const g = fdPlano(r, fonte, S, { ...op, t0: ts[i] ?? 1e9 }); g.style.display = 'none'; g._t = i ? (ts[i] ?? 1e9) : -1; return g; });
+        const d = o.d ?? 640, cx = o.cx ?? 540, cy = o.cy ?? 620;
+        el(r, 'div', `position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at ${cx}px ${cy}px, rgba(0,0,0,.5) ${(d * .45).toFixed(0)}px, rgba(0,0,0,0) ${(d * .95).toFixed(0)}px);`);
+        S.ph = photo(r, cx - d / 2, cy - d / 2, d, d, { border: 0, tape: false, fy: o.fy ?? .42 });
+        S.photos.push(S.ph); S.ph.zoomFn = lt => zoom(lt);
+        S.ph.fr.style.borderRadius = S.ph.inner.style.borderRadius = '50%';
+        S.ph.fr.style.boxShadow = `0 0 0 ${Math.round(d * .016)}px ${o.aro ?? '#fcfcfc'}, 0 24px 50px rgba(0,0,0,.6)`;
+        S.circ = S.ph.fr;
+        S.cap = o.cap ?? { y: o.capY ?? Math.round(cy + d / 2 + 190) }; S.vig = .3;      // vinheta só pesa nas bordas da imagem de trás
+      }
+      S.grao = 0;                                                                      // o grão é da tela inteira: cobriria o apresentador
+      if (o.build) o.build(r, S, c);
+    },
+    update(S, c) {
+      if (S.planos) { let k = 0; S.planos.forEach((g, i) => { if (c.lt >= g._t) k = i; }); S.planos.forEach((g, i) => { g.style.display = i === k ? 'block' : 'none'; }); }
+      if (S.circ) S.circ.style.transform = `scale(${lerp(.8, 1, fdMotor() ? FDG.mola((c.lt + .04) / .45) : E.back(clamp((c.lt + .04) / .3))).toFixed(4)})`;     // pop de entrada (mola no motor golpe)
+      if (o.update) o.update(S, c);
+    },
+  });
+}
+
+// ---------- 8. final: tela preta com a marca de quem fala (o "FOUNDED" da referência) ----------
+// fimMarca(beats, {nome: 'FELIPE DANTAS', perfil: 'perfil_felipedantasf' (print real, opcional), t: c => tempo de entrada})
+function fimMarca(beats, o = {}) {
+  scene({
+    beats, tr: 'cut', bg: 'dark', camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      el(r, 'div', 'position:absolute;inset:0;background:#000;');
+      S.logo = el(r, 'div', `position:absolute;left:540px;top:${o.perfil ? 700 : 960}px;transform:translate(-50%,-50%);background:#fff;color:#000;padding:20px 34px 46px;` +
+        `font-family:${FD_SANS};font-weight:900;font-size:64px;letter-spacing:-.02em;white-space:nowrap;clip-path:polygon(0 0,100% 0,100% 74%,62% 74%,62% 100%,0 100%);opacity:0;`, esc(o.nome || 'FELIPE DANTAS'));
+      if (o.perfil && AS(o.perfil)) { const a = AS(o.perfil); S.pf = el(r, 'img', `position:absolute;left:${540 - 400}px;top:880px;width:800px;border-radius:24px;opacity:0;`); S.pf.src = a.src; }
+      S.t = o.t ? o.t(c) : 0;
+      S.cap = lt => lt < S.t ? {} : { modo: 'none' }; S.grao = .08; S.vig = 0;
+    },
+    update(S, c) {
+      const q = clamp((c.lt - S.t) / .08);
+      S.logo.style.opacity = q; if (S.pf) S.pf.style.opacity = clamp((c.lt - S.t - .3) / .3);
+      if (o.update) o.update(S, c);
+    },
+  });
+}

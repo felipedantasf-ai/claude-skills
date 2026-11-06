@@ -1,0 +1,15 @@
+/* ==== edit-v4: dossiê investigativo com a identidade da V4 (brand book 2026). Fontes da marca, legenda de UMA palavra em
+   IBM Plex Sans VINHO sobre o branco, grão e vinheta clara por cena, sem barra de progresso. O preparar_ev4.py cola este bloco no <style> do index.html ==== */
+@font-face { font-family: Plex; src: url(fonts/IBMPlexSans.ttf); font-weight: 100 700; font-style: normal; }
+@font-face { font-family: Plex; src: url(fonts/IBMPlexSans-Italic.ttf); font-weight: 100 700; font-style: italic; }
+@font-face { font-family: Morganite; src: url(fonts/Morganite-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: Morganite; src: url(fonts/Morganite-Bold.ttf); font-weight: 700; }
+@font-face { font-family: Fjalla; src: url(fonts/FjallaOne-Regular.ttf); }
+#cap { position: absolute; z-index: 5; left: 540px; top: 1371px; transform: translate(-50%, -50%); white-space: nowrap; color: #280000;
+  background: none !important; box-shadow: none !important; padding: 0 !important; opacity: 0; text-transform: none; }
+#cap span { padding: 0; border-radius: 0; }
+#prog { display: none !important; }
+#grain { display: block !important; position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; mix-blend-mode: overlay; background-size: 256px 256px; }
+#vig { opacity: 0; background: radial-gradient(ellipse 80% 66% at 50% 46%, rgba(0,0,0,0) 46%, rgba(49,45,45,.22) 100%) !important; }
+/* fundo BRANCO da V4; esta camada (mix-blend lighten) ainda leva os pretos que sobrarem (vídeo, TV) para o vinho #280000 */
+#v4tinta { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: #280000; mix-blend-mode: lighten; }

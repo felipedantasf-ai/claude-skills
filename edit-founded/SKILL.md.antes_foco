@@ -1,0 +1,212 @@
+---
+name: edit-founded
+description: Formato "edit founded" (história de fundador/empresa), vertical 9:16, com o Kit_Edicao_Vox_v2. Replica o vídeo do canal FOUNDED sobre a Monster (out/2026). O apresentador aparece 10–15 vezes por 2–4 s, em tela cheia ou num círculo sobre as imagens; no resto, uma imagem em tela cheia por palavra forte (~100 trocas por minuto, plano de ~0,5 s), fotos e vídeos reais intercalados (~60/40) aproximando devagar, com retícula suave e cor de cinema. A legenda fica no MEIO da tela, palavra por palavra, misturando serifa itálica com sans pesado. Usa cartões branco e vermelho nas viradas e nos anos, faixa letterbox para vídeo largo, tríptico, produto girando sobre a marca, gráfico de alta com a porcentagem contando, print de loja e final com a marca de quem fala. A trilha é uma cama cinematográfica grave. Use quando o Felipe pedir "edit founded", "formato Founded", "estilo história de fundador/empresa", "igual ao vídeo da Monster", ou mandar esse vídeo como modelo — com gravação ou áudio da ElevenLabs + HeyGen.
+---
+
+# Formato edit-founded (história de fundador, uma imagem por palavra, apresentador 10–15 vezes)
+
+Modelo extraído quadro a quadro e no áudio do vídeo que o Felipe mandou em 30/10/2026 (`C:\Users\USER\Downloads\DeHrWPmufP5.mp4`,
+1:19, inglês, 720×1280 a 24 fps, canal FOUNDED). A história é a de Rodney Sacks: advogado sul-africano que compra uma empresa de suco
+falida e cria a Monster Energy.
+
+**Antes de planejar, abra as duas imagens desta pasta:**
+- `referencia_formato.jpg`: 18 quadros da referência, rotulados.
+- `exemplo_teste.jpg`: o que estes componentes produzem (projeto `projetos/teste_founded`, corte "Lisa Su / AMD" da Thainá, demo de 42 s).
+
+Esta skill complementa o kit. Corte, beats, render, mix e entrega seguem `<kit>\CLAUDE.md`. As regras fixas do Felipe estão na memória:
+fala nunca muda; dado na tela com fonte e data; IA nunca faz rosto de pessoa real; perfil REAL no CTA; versão nova `_vN`;
+entrega = tiktok ≤ 29 MB + MASTER.
+Rode tudo com o Python do kit (`<kit>\.venv\Scripts\python.exe`). Em outro PC, a variável `VOX_KIT` aponta para a pasta do kit;
+sem ela, vale `H:\Edição Claude\Kit_Edicao_Vox_v2`.
+
+## Arquivos desta pasta
+| arquivo | para quê |
+|---|---|
+| `componentes.js` | biblioteca (vira `work/<prefixo>_a.js`): legenda no meio, `rajada`/`rajadaAuto`, `cartaoCor`, `faixa`, `tripla`, `produtoGira`, `alta`, `siteCor`, `fimMarca`, `fdPlano`; motor golpe (`FDG.golpe`, `FDG.mola`, chicote nas emendas, `trancos`) |
+| `cenas_exemplo.js` | as 20 cenas do teste (0–42 s), comentadas. Copie a estrutura |
+| `legenda.css` | fontes (TimesInv normal e itálico = Times New Roman do Windows; Inter 400/800/900), legenda sem caixa, grão e vinheta |
+| `preparar_founded.py` | prepara o projeto: fontes, CSS, componentes, perfis, `clipn.js`, `marcas.js`, `etapas.json` (montar + trilha_fd, sem apresentador) |
+| `imagens.py` | fotos no tamanho que cobre a tela (`foto`), para a faixa (`faixa`), e recorte de produto sem fundo (`produto`, ISNet do kit) |
+| `clipes.py` | trechos de vídeo → `render/clips/<nome>/` 30 fps em 9:16 (ou `largo` para a faixa) — o mesmo do edit-papel |
+| `pagina.py` | print de site/loja REAL pela URL, em cor (`--pb` = xerox), com a posição de trechos em `render/marcas.js` |
+| `trilha_fd.py` | cama cinematográfica sintetizada (~76 BPM, mi menor, ~14 LU abaixo da voz) e mix final −14 LUFS |
+| `montar.py` / `previas.py` / `ritmo.py` | montar: sintaxe, palavras e beats. previas: folhas por cena. ritmo: trocas/min no vídeo pronto, com detector estrito que não conta zoom rápido como corte |
+
+## A receita em números (medida na referência)
+- **Ritmo:** 101 trocas de imagem por minuto (130 cortes em 77 s), plano médio 0,59 s, mediana 0,50 s, 10% dos planos com ≤ 0,17 s
+  (entradas de tríptico, rajadas). Cada palavra forte troca a imagem. Só o gráfico de alta, o produto girando e o final passam de 1,6 s.
+  O teste v1 (com vídeos) deu 92/min, média 0,64 s e mediana 0,54 s.
+- **Voz:** 2,7 palavras/s, narração contínua.
+- **Apresentador** (pedido do Felipe, 30/10; a referência não tem): aparece **10–15 vezes** num vídeo de ~2:30, **2–4 s** cada
+  (gravação real até 5 s), nunca duas aparições seguidas. Alterna **tela cheia** (punch-in leve numa palavra forte) e **círculo**
+  (cabeça e ombros num círculo de aro branco na metade de cima, com as fotos e vídeos da história trocando atrás em tela cheia).
+  O chroma foi testado e reprovado pelo Felipe (30/10: "não ficou bom"); não use recorte do apresentador.
+  Fica nas perguntas, opiniões, viradas e no fecho; o resto é imagem. Só entra em janela em que ele olha para a câmera.
+  O apresentador fica LIMPO (Felipe, 30/10: "não precisa ter os mesmos efeitos das fotos"): sem retícula, cor de cinema, grão, vinheta
+  nem aproximação lenta, só a cor da gravação e um punch-in seco numa palavra forte.
+- **MESCLA de fotos e vídeos** (decisão do Felipe, 30/10: "a ideia é mesclar imagens com vídeos"):
+  - ~60% FOTO (pessoa, lugar, logo, documento, produto parado) e ~40% VÍDEO (ação: andar, falar no palco, mãos trabalhando, máquina,
+    plateia, bandeira tremulando), INTERCALADOS: nunca mais de 2 planos seguidos do mesmo tipo.
+  - Histórico: a demo v1 era quase só vídeo ("quase não vi fotos"); a v2 era quase só foto. A certa é a v3, com a mescla (38% de vídeo).
+  - Se só houver vídeo de um assunto, tire FOTOS dele: `imagens.py render/clips/<trecho>/0040.jpg:foto` vira a foto `f_<trecho>_0040`.
+    Use o mesmo trecho também como vídeo em outro momento (`'clip:nome'` com outro `from`).
+- **Aproximação:** todo plano entra aproximando (padrão do `fdPlano`: `mov: 'entra'`). Desde 02/11 é o **motor golpe** (abaixo):
+  foto 1,03 → 1,15 e vídeo 1,03 → 1,09 em 0,5 s com a curva do chicote, depois deriva lenta. Antes era foto ~7% e vídeo 4% com
+  `E.out` em 1 s (`window.FD_MOTOR = 'antigo'` volta a isso). Dentro da rajada a troca continua em corte seco; nas emendas entre
+  cenas de imagem e cartões entra um chicote com blur.
+- **Retícula suave:** pontos finos (~6 px na tela, a 45°) sobre a imagem INTEIRA e em cor. Não é P&B, é só uma textura de impressão.
+  O `imagens.py` grava a retícula na foto (`RETICULA=.24`, `PERIODO=6`). Os vídeos ganham uma trama de pontos por cima
+  (`window.FD_RETICULA_VIDEO = .16`), para foto e vídeo terem a mesma textura.
+- **Cor:** de cinema, quente e saturada (laranja/âmbar com sombras verdes-azuladas), preto denso. Não é P&B. Cartões em branco `#fcfcfc`
+  e vermelho `#f2212d`; verde vivo `#29e33a` só no gráfico de alta.
+- **Legenda:**
+  - fica no MEIO da tela (y ≈ 975 de 1920) e mostra palavra por palavra (entra seca), em grupos de até 3 palavras / ~19 letras;
+  - mistura **serifa itálica condensada** (Times itálico a 86%) nas palavras de ligação com **sans pesado** (Inter 800, apertado)
+    nas palavras fortes, ex.: "*This South* **African**", "**he** *found* **one.**", "*with no clear* **plan.**";
+  - branca com sombra leve; preta no cartão branco e branca no vermelho. ~64 px.
+- **Cartões:** 7 em 79 s, de 0,7–1,5 s cada:
+  - branco nas viradas e nos anos ("1989,", "he found one.", "So in 2002,", "Not bad for");
+  - vermelho na virada ruim ("A struggling", "collapsed.").
+- **Som:**
+  - cama cinematográfica grave e estéreo, ~76 BPM, mi menor, presente (~14 LU abaixo da voz), constante;
+  - sem efeito nos cortes; só um tique no contador do gráfico;
+  - master −14 LUFS (a referência também mede −14).
+- **Final:** "Follow FOUNDED for more." e tela preta com a marca do canal (caixa branca com o nome, 1,6 s).
+
+## Motor golpe (02/11/2026, portado da vox-edit2 depois do A/B aprovado lá: "B aprovado, aplica")
+**A/B desta skill APROVADO pelo Felipe em 02/11/2026** (`H:\Downloads\Edicoes_Claude\_Testes e demos\TesteMotion\TesteMotion_founded_AB_v1.mp4`). O motor é o padrão; `FD_MOTOR = 'antigo'`
+só para reeditar vídeo de antes de 02/11.
+O Felipe achava os motions fracos e mandou duas referências do earn.edits (`C:\Users\USER\Downloads\earn.edits_De6bR-1OtGX.mp4`,
+cientista a 30 q/s com blur; `earn.edits_DYURMKHoayc.mp4`, Buffett a 16 q/s). Aqui o formato JÁ troca de imagem a cada ~0,5 s, então o
+motor NÃO põe mais cortes. Ele muda como cada plano anda e como as cenas emendam:
+
+| janela 16,4–26,8 s do teste (sem apresentador) | demo v6 (antes) | motor golpe | meta |
+|---|---|---|---|
+| plano médio | 0,80 s | 0,61 s | ≤ 1,2 s |
+| câmera parada | 5% | 13% (a faixa letterbox mede baixo: 2/3 da tela são preto) | ≤ 20% |
+| velocidade da câmera | 3,5 px/q | 4,9 px/q | ≥ 4 px/q |
+| metade do caminho do movimento | 27% (`E.out`: arranque seco, cauda longa) | 36% | 28–45% |
+
+- **Curva golpe** (`FDG.golpe`, a mesma `E2C.golpe` da vox-edit2): a velocidade começa a ~45% do pico, chega ao pico em 20% do tempo
+  e desliza até zero. Ela substitui o `E.out`/`E.out5` na aproximação dos planos e no punch-in do apresentador.
+- **Cada plano** (`fdPlano`): aproximação forte e CURTA (0,5 s, `dEnt`) que termina dentro do plano de ~0,5 s. Com 0,7 s a aproximação
+  não terminava antes do próximo corte e o movimento virava um platô (metade do caminho em 45%). Depois vem a deriva (zoom .02/s) e a
+  câmera na mão (3 px): nunca para.
+- **Chicote na emenda** (automático): a cena de imagem sai acelerando nos últimos 0,2 s (zoom +40% e desliza pela sobra da imagem, sem
+  mostrar borda preta) e a seguinte chega do lado oposto, freando em 0,4 s. Os sentidos alternam (esq, dir, cima, esq, baixo, dir).
+  - Vale entre `rajada`, `faixa`, `tripla` e `cartaoCor`.
+  - O apresentador (`presFD`), o final, o `produtoGira`, a `alta` e o `siteCor` ficam em corte seco.
+  - No cartão liso não se vê movimento: quem chega é a frase (110 px, com mola em 0,45 s). Depois ela fica parada para ser lida.
+- **Blur direcional** (filtro SVG por plano): só acima de ~10 px/quadro, então aparece no pico do chicote e some no deslize. A legenda
+  é outra camada e NUNCA borra.
+- **Mola** (`FDG.mola`, passa ~9% e assenta) nas entradas: painéis do tríptico deslizando de lados alternados, pop do círculo do
+  apresentador e frase do cartão.
+- **Tranco** nos impactos: `trancos: c => [[c.w('B15', 'falida') + .05, 9]]` (6–10 px) em `rajada`/`rajadaAuto`/`faixa`/`tripla`.
+- **Opções:**
+  - `chicote: false` na cena: sem chicote nas emendas dela.
+  - `chicote: 'esq'|'dir'|'cima'|'baixo'` na cena: escolhe o sentido do chicote com que ela CHEGA.
+  - `{chicote: 'dir'}` no op de um plano da `rajada`: chicote também DENTRO da rajada, do plano anterior para esse. Use só quando a fala
+    pede ("mas", virada, contraste).
+  - `{dEnt, deriva, mao, motor: false}` no op do plano.
+  - `window.FD_MOTOR = 'antigo'` desliga o motor no vídeo inteiro.
+- **Projetos antigos** têm a cópia velha da biblioteca em `work/<prefixo>_a.js` e não mudam. Copiando a nova, as cenas antigas
+  funcionam sem mexer (o motor é o padrão).
+- **Teste:** `projetos/teste_founded`, janela 16,4–26,8 s (`out/motor_A.mp4`, `out/motor_B.mp4`, folhas `out/folha_motor_B*.jpg`;
+  cenas originais em `work/*.bak_motor`). Lado a lado: `H:\Downloads\Edicoes_Claude\_Testes e demos\TesteMotion\TesteMotion_founded_AB_v1.mp4`.
+- **Medir:** `<kit>\.venv\Scripts\python.exe ferramentas\medir_motion.py <proj> --de T0 --ate T1`. Meça janelas SEM o apresentador
+  (ele fica limpo e de propósito quase parado).
+
+## Os componentes
+- **`rajada(beats, [[c => t, fonte, op], ...])`** e **`rajadaAuto(beats, [fontes])`**: o miolo do formato. Planos em tela cheia trocando em corte seco.
+  Intercale FOTO (`f_x`) e VÍDEO (`'clip:x'`), ~60/40; os dois já aproximam sozinhos.
+  - `fonte` = asset (`f_x`, foto) ou `'clip:nome'` (trecho em `render/clips/`).
+  - `op` = `{mov: 'sai'|'entra'|'esq'|'dir'|'sobe'|'desce'|'fixo', z, fx, fy, from (s dentro do trecho), rate, dur}`.
+  - O `rajadaAuto` troca sozinho em cada palavra forte com ≥ 0,3 s (ou em qualquer palavra depois de 0,6 s). Passe fontes suficientes:
+    ~1 por palavra forte. Fonte a menos = o último plano estica.
+  - Use partes diferentes do mesmo trecho (`from`) para variar sem repetir o quadro.
+- **`cartaoCor(beats, {cor: 'branco'|'vermelho'})`**: tela lisa com a legenda no meio. No máximo 1,5 s: frase mais longa vai metade em rajada.
+- **`faixa(beats, [[t, fonte], ...])`**: faixa 16:9 no meio, preta em cima e embaixo. É o lugar do vídeo largo (telejornal, Bloomberg,
+  entrevista) e de "momentos" (dinheiro, mãos). Trechos `largo` do `clipes.py` caem aqui sem corte.
+- **`tripla(beats, [f1, f2, f3], {ts: c => [t1, t2, t3]})`**: três painéis 1080×640 empilhados que entram um a um. Use para "3 bilhões",
+  listas e variações de produto.
+- **`produtoGira(beats, 'p_x', {marca: 'RYZEN', w})`**: recorte do produto (`imagens.py modo produto`) flutuando e girando sobre fundo escuro
+  com a marca repetida em relevo.
+- **`alta(beats, {produto, marca, valores: ['US$ 3 bi', ..., 'US$ 1 tri'] | [56, 722, ...], suf, ts, fonte})`**: linha verde em degraus
+  subindo atrás do produto e o número em serifa itálica trocando (tique em cada troca). **`fonte` é obrigatória** (dado com data e fonte).
+- **`siteCor(beats, 'd_loja', {y0, y1})`**: print de loja/site real (`pagina.py --url`) descendo devagar. Use para preço e lançamento.
+- **`fimMarca(beats, {nome: 'FELIPE DANTAS', perfil: 'perfil_felipedantasf', t: c => tempo})`**: tela preta com a marca de quem fala
+  (caixa branca recortada, como o "FOUNDED"). O print REAL do perfil fica embaixo.
+- **`presFD(beats, {forma: 'cheia'|'circulo', fundo: [fontes], z, punch: 1.08, fy, capY, d: 640, cx: 540, cy: 620, aro})`**: o apresentador.
+  - **Tela cheia:** `z` aproxima (gravação aberta: z 1,5–1,6, `fy` .40–.45) e dá um punch-in de 8% numa palavra forte depois de ~1 s.
+  - **Círculo:** diâmetro `d` 640 centrado em (540, 620), aro branco e sombra, entra com um pop curto; `z`/`fy` enquadram cabeça e
+    ombros (plano aberto: z 1,7, fy .42); `fundo` = fotos/vídeos da frase em tela cheia, trocando nas palavras fortes.
+  - Os dois sem efeito de foto no apresentador (presFD já faz). Tela cheia: legenda no peito (y 1440). Círculo: legenda logo abaixo dele (y = cy + d/2 + 190 ≈ 1130). Nunca no rosto.
+  - Avatar do HeyGen: as peças do `apresentador.json` são as janelas do presFD, com 10–15 peças de 2–4 s.
+- Legenda por cena: `S.cap = {y, x, s, cor, larg, modo: 'none'}`. Palavras: `FD_ITALICO.add('juice')` força itálico, `FD_FORTE.add('12')` força sans.
+- `fdPlano(p, fonte, S, op)` monta um plano dentro de qualquer caixa (para cenas próprias).
+
+## Imagens: de onde vêm ~100 planos por minuto
+O trabalho pesado do formato é juntar material. Para 2:30 são ~250 planos. Na ordem de preferência:
+1. **Fotos reais** (o grosso): fundador, produto, lugares, escritório, notícias. Fontes: Commons, imprensa, sites das empresas,
+   as que o Felipe mandar. Use `imagens.py ARQ:foto` (tamanho de tela + retícula suave).
+2. **Fotos tiradas de vídeo real** (entrevista, telejornal, evento, propaganda): baixe o trecho (`ferramentas/baixar_trechos.py` +
+   `clipes.py`) e pegue 2–4 quadros DIFERENTES de cada um como foto (`imagens.py render/clips/<trecho>/NNNN.jpg:foto`).
+   Quadro de vídeo largo vai como `:faixa` para a `faixa`. Fotos seguidas do mesmo trecho precisam ser bem diferentes (outro ângulo ou
+   assunto), senão parece que não trocou.
+   Os trechos com AÇÃO ficam como VÍDEO (`'clip:nome'`), ~40% dos planos, intercalados com as fotos.
+3. **Produto recortado** (`imagens.py ARQ:produto`) para `produtoGira`/`alta`.
+4. **Prints reais** de loja, site e matéria (`pagina.py --url`).
+5. **Imagem gerada:** primeiro no **Qwen local** (`gerar_qwen.py`, `Kit_Edicao_Vox_v2/guias/prompts_imagens.md` §2, `"modelo": "base"` para foto
+   realista); Higgsfield só se o Qwen não der conta. **Vídeo gerado** continua no Higgsfield. Os dois só para cenas genéricas sem pessoa real (advogado de costas, sala de reunião,
+   mãos com dinheiro), como faz a referência. Rosto de pessoa real ou marca por IA só com OK do Felipe (pergunte antes).
+
+Cada imagem mostra a palavra dita: "lawyer" = advogado de costas, "bankrupt" = lata velha do produto, "California" = palmeiras no pôr do sol.
+A primeira imagem é a pessoa ou o produto de que a frase fala.
+
+## Passo a passo
+1. **Projeto** (raiz do kit): `pipeline.py preparar <nome> "C:/.../video.mp4"` (ou o mp3 da ElevenLabs). Com gravação, só o áudio entra
+   no vídeo.
+2. **Formato:** `python <esta pasta>/preparar_founded.py <nome> --prefixo xx [--avatar | --real | --sem-apresentador] [--sem-trilha]`.
+3. **Corte e beats** como no kit (beats curtos, quebrando antes de nomes, anos e valores).
+4. **Pesquisa:** cada fato, número e data com a fonte. O que estiver errado na fala NÃO vai para cartão nem gráfico (a legenda mostra a fala).
+5. **Lista de planos** (marque as 10–15 aparições do apresentador primeiro, espalhadas, alternando cheia e círculo): tabela `cena | beats | fala | componente | fontes (uma por palavra forte)`. Confira 85–115 trocas/min,
+   cartões ≤ 1,5 s, 5–8 cartões por minuto e meio, 1–2 faixas, 1 tríptico, produto girando e alta onde houver produto e número.
+6. **Material:** trechos (`clipes.py`), fotos (`imagens.py`), prints (`pagina.py`). `export MSYS_NO_PATHCONV=1` antes no Git Bash.
+7. **Cenas** em `work/xx_b.js`... (copie de `cenas_exemplo.js`), com o comentário `// Sn — "fala"`. Depois `python montar.py <nome> xx`.
+8. **Prévias:** `python previas.py <nome> --pontos 2`; abra `out/pv/cenas_*.jpg`.
+9. **Fechar:** `pipeline.py fechar <nome> NOME --destino "H:\Downloads\Edicoes_Claude"`.
+10. **Conferir:** `python ritmo.py <nome>` (85–115/min, plano mediano ~0,5 s) e todas as `out/qa_*.jpg`.
+11. **Mensagem final** (português, curta): arquivos, créditos, avisos de checagem com fonte, **Fontes:** trechos (canal e data), fotos (autor e licença), prints.
+
+## Armadilhas (vistas no teste)
+- **Detector de cortes comum conta zoom rápido como corte:** ele dá 138/min na referência, quando o real é 101. Use o `ritmo.py` desta skill (estrito).
+- **`rajadaAuto` com ≥ 0,38 s entre trocas deu 75/min** (lento). O padrão agora é 0,3 s + troca forçada após 0,6 s, e deu 92/min.
+  Faltando fontes, o último plano estica: conte as palavras fortes.
+- **Cartão longo parece parado:** "Para você ter uma ideia, quando ela assumiu em 2014," num cartão só deu 2,8 s. Divida: rajada + cartão.
+- **Faixa letterbox:** o detector de cortes mal vê troca dentro da faixa (muito preto). Troque de trecho a cada ~0,7 s mesmo assim.
+- **Chroma foi reprovado** (30/10): o apresentador recortado na frente das imagens "não ficou bom". A forma sobre as imagens é o círculo.
+- **Gravação em plano aberto** (a Thainá no teste): tela cheia com z 1,55 e círculo com z 1,7. Sem isso ela fica pequena.
+- **Proporção foto/vídeo:** v1 quase só vídeo e v2 quase só foto, as duas erradas. O Felipe quer MESCLA (v3, ~60/40). Conte antes de renderizar.
+- **Fotos seguidas do mesmo trecho:** o `ritmo.py` não conta a troca (e o olho também quase não vê). Varie o assunto.
+- **Recorte de produto com mão:** o ISNet mantém a mão que segura o produto. Combina com o formato (latas na mão da referência).
+  Para produto solto, use foto de catálogo/fundo liso.
+- **Dado no gráfico de alta precisa de data e fonte:** "passou de US$ 1 trilhão em 21/09/2026 (CNBC)". Se o dado mudou desde a gravação,
+  avise o Felipe.
+- **Última cena com câmera/zoom por `c.dur`:** a última cena vai até o fim do áudio. Numa demo parcial, ancore o tempo numa palavra.
+- **Motor golpe, aproximação longa demais:** com `dEnt` .7 a aproximação não termina no plano de 0,5 s e o movimento vira um platô
+  (régua: metade do caminho 45%). O certo é .5. Deriva .035 + mão 4 px emendavam tudo num movimento só; agora são .02 e 3 px.
+- **Motor golpe, legenda sobre blur claro:** no pico do chicote, uma palavra itálica branca sobre céu borrado quase some (1–2 quadros).
+  Como é a 1ª palavra da frase e ela fica na tela, passa; numa palavra-chave, escolha um plano mais escuro ou use `chicote: false`.
+- **Componente novo:** copie de novo `componentes.js` para `work/<prefixo>_a.js` (o preparar faz isso) antes de montar.
+
+## Checklist antes de entregar
+- [ ] `ritmo.py`: 85–115 trocas/min, plano mediano ~0,5 s; só contador, produto girando e final passam de 1,6 s.
+- [ ] Motor golpe ligado: `medir_motion.py` em 2–3 janelas sem apresentador (câmera parada ≤ 20%, ≥ 4 px/q, metade do caminho em
+      28–45%); chicotes nas emendas, tranco nos impactos; a legenda lida sobre o blur (frase sobre céu claro borrado: confira).
+- [ ] Cada palavra forte com a sua imagem, literal; a primeira imagem é a pessoa ou o produto citado; rosto real gerado por IA só com OK do Felipe (pergunte antes).
+- [ ] Fotos e vídeos intercalados (~60/40, nunca 3 seguidos do mesmo tipo), todos com aproximação e retícula suave; cor de cinema (não P&B); cartões de 0,7–1,5 s.
+- [ ] Apresentador 10–15 vezes (montar.py confere), 2–4 s cada, alternando tela cheia e círculo, sempre olhando a câmera, nunca duas aparições seguidas.
+- [ ] Legenda no meio, palavra por palavra, itálico + sans pesado; nas aparições, no peito (nunca no rosto).
+- [ ] Número na tela = dado conferido, com fonte e data.
+- [ ] Cama cinematográfica, −14 LUFS, checa_fala sem palavra perdida.
+- [ ] Final com `fimMarca` (marca + perfil REAL de quem fala). Versão `_vN` em `entrega/` e `H:\Downloads\Edicoes_Claude`; fontes com links.

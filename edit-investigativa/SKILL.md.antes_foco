@@ -1,0 +1,431 @@
+---
+name: edit-investigativa
+description: Formato "edit investigativa" (dossiê) para vídeos verticais 9:16 de denúncia, caso, escândalo, dinheiro público e impostos, feitos com o Kit_Edicao_Vox_v2. Replica o vídeo do TikTok @samuelszuchan (out/2026, caso Viya). Tudo P&B com retícula fina e um acento VERMELHO; só o apresentador tem cor (tom frio, luz vermelha lateral, punch-out na entrada). Cenários — tipografia no escuro (serifa condensada vermelha/branca, tracejados, câmera viajando), mural de provas (fotos com percevejo, fio vermelho, câmera 3D com foco), prints REAIS de matérias com marca-texto vermelho no número dito, pessoas recortadas com tarja nos olhos até o nome, TV de tubo, mapa escuro com a região em vermelho. Legenda de UMA palavra em serifa; cama grave + baque sub-grave em cada corte. Use quando o Felipe pedir "edit investigativa", "formato investigativo", "dossiê", "mural com fio vermelho", "igual ao vídeo da streamer chinesa", ou mandar esse vídeo como modelo — com gravação real ou áudio + HeyGen.
+---
+
+# Formato edit-investigativa (dossiê escuro P&B + vermelho)
+
+Modelo extraído quadro a quadro e no áudio do vídeo que o Felipe mandou em 28/10/2026
+(`C:\Users\USER\Downloads\samuelszuchan_7686765046055161101.mp4`, 2:36, em inglês, 720×1280). O caso é o da Viya (Huang Wei),
+a maior live streamer da China, multada por sonegação.
+
+**Antes de planejar, abra as duas imagens desta pasta:**
+- `referencia_formato.jpg`: 18 quadros da referência, rotulados por cenário.
+- `exemplo_teste.jpg`: o que estes componentes produzem. É o teste com o corte "Nordeste obras fantasmas" (`projetos/teste_investigativa`, demo de 66 s).
+
+Esta skill complementa o kit. O corte, os beats, o render, a mix e a entrega seguem `H:\Edição Claude\Kit_Edicao_Vox_v2\CLAUDE.md`.
+As regras fixas do Felipe estão na memória:
+- a fala nunca muda;
+- todo dado tem checagem com fonte;
+- IA nunca faz rosto de pessoa real;
+- o CTA usa o perfil REAL de quem fala;
+- toda entrega é uma versão nova `_vN`, sem sobrescrever;
+- entrega = tiktok ≤ 29 MB + MASTER.
+
+Rode tudo com o Python do kit (`<kit>\.venv\Scripts\python.exe`). Em outro PC, a variável de ambiente `VOX_KIT` aponta para a pasta
+do kit (o `INSTALAR_edit-investigativa.bat` do pacote da equipe configura); sem ela, vale `H:\Edição Claude\Kit_Edicao_Vox_v2`.
+Onde este texto diz `H:\Edição Claude\Kit_Edicao_Vox_v2`, leia a pasta do kit da máquina.
+
+## Arquivos desta pasta
+| arquivo | para quê |
+|---|---|
+| `componentes.js` | biblioteca do formato (vira `work/<prefixo>_a.js`). Tem a legenda de 1 palavra, `presInv`, `palco`/`linha`/`linhaFala`/`tracejado`/`contador`/`tarja`/`impressa`, `recorte`/`nomeado`, `mural`/`muralCena`, `docCena`/`ivMarca`, `siteCena`, `tvCena`/`clipe`, `mapaCena`, `fotoCena`, `fimPerfilInv`, as câmeras `camOlha`/`camC` e o **motor golpe** (`camG`, `ivGolpes`, opção `golpes` das cenas prontas) |
+| `cenas_exemplo.js` | as 16 cenas do teste (0–66 s), uma de cada cenário, comentadas. Copie a estrutura |
+| `legenda.css` | fontes (TimesInv = Times New Roman do Windows; Inter 400–700), legenda sem caixa, grão e vinheta por cena, sem barra de progresso |
+| `preparar_investigativa.py` | prepara um projeto: fontes, CSS, componentes, parede `t_parede`, TV `g_tv60`, perfis, `clipn.js`/`olhos.js`/`marcas.js`, `etapas.json` |
+| `provas.py` | fotos em P&B com retícula fina: `foto` (tela cheia), `imp` (impressa do mural), `pessoa` (recorte + olhos para a tarja), `multidao` (tarja em todo rosto), `doc`, `site` (borda rasgada) |
+| `pagina.py` | DOCUMENTO real: print da matéria pela URL (Chromium do kit) ou reconstrução com o texto real. Guarda onde está cada trecho a marcar de vermelho (`render/marcas.js`) |
+| `trilha_inv.py` | cama grave sintetizada (~117 BPM, dó menor, sem drops) + baque sub-grave em cada corte + mix final −14 LUFS |
+| `montar.py` / `previas.py` / `ritmo.py` | montar: junta `work/<prefixo>_[a-z].js` e confere sintaxe, palavras, beats, apresentador e ritmo previsto. previas: folhas por cena. ritmo: cortes/min no vídeo pronto |
+| `modelo/g_tv60.png` | TV antiga recortada (a tela do PNG é opaca: a imagem vai por cima) |
+
+**O que já rodou** (teste de 28/10/2026):
+- **no render da demo:** `presInv`, `palco`/`linha`/`tracejado`/`contador`/`impressa`, `recorte` com tarja, `muralCena`, `docCena` com print real,
+  `tvCena` com print, `mapaCena`, `fotoCena`, `trilha_inv.py`;
+- **só em prévia:** `siteCena`, `nomeado`, `pagina.py --texto`, `fimPerfilInv` (`work/teste_extra/iv_c_componentes.js`);
+- **ainda não testados:** `tvCena` com clipe de vídeo e `provas.py` modo `multidao`.
+
+## A receita em números (medida na referência)
+- **Ritmo lento de corte, rápido por dentro.** São 30 cortes em 153 s: 11,5–11,8 cortes/min, plano médio 5,0 s e mediana 4,0 s (de 2,0 a 16,6 s).
+  O olho nunca fica parado. Dentro de cada plano, algo novo acontece a cada 0,6–1,2 s: a palavra que entra, o item que é preso no
+  mural, o marca-texto, a câmera que viaja ou o foco que muda. Aceite 9–15 cortes/min. O teste deu 13,7/min.
+- **Tempo de tela:**
+  | cenário | tempo |
+  |---|---|
+  | apresentador | 36%, em 8 aparições de 2,1–12,2 s |
+  | documentos e sites | 36% |
+  | tipografia no escuro | 13% |
+  | mural | 9% |
+  | TV, foto de arquivo e mapa | 7% |
+
+  Com avatar do HeyGen, o apresentador fica em **25–35% e sempre em peças de 2–4 s** (regra do Felipe: esconde as imperfeições do avatar).
+- **Voz:** 2,5 palavras/s e corte justo (só 6 s de pausas ≥ 150 ms em 153 s). Mantenha o corte apertado do kit.
+- **Cor** (medida em pixels):
+  - vermelho do texto `#e41818`; marca-texto `#eb2528`; região do mapa `#b93530` com textura;
+  - preto `#050505` nos cantos e `#131313` no centro (vinheta);
+  - branco do texto `#d8d7d9` (nunca branco puro);
+  - papel do documento `#dbdadc` no centro, com os cantos a ~40% do brilho do centro.
+  - O apresentador é a única coisa colorida: pele e camisa frias (lavanda/azuladas), luz VERMELHA de um lado, topo escuro.
+- **Tipografia:**
+  - Serifa = Times condensada a 86% (`TimesInv`), apertada. Sans = Inter 400/600.
+  - Todo texto tem brilho (glow) e uma aberração cromática leve.
+- **Legenda:**
+  - UMA palavra por vez, sem caixa. Ficam juntos número + grandeza ("3 bilhões de reais"), datas e nomes próprios ("Felipe Dantas").
+  - Serifa 66 px `#e6e5e8` com sombra escura, no **centro, y 1371, em todas as cenas**.
+  - Some quando a tela já escreve a fala: tipografia, mapa e revelação de nome.
+- **Som:**
+  - Cama grave: 87% da energia abaixo de 250 Hz, pulso a ~117 BPM em dó menor, **nível constante e sem drops** (~19 LU abaixo da voz).
+  - **Baque sub-grave** (~40 Hz) em 28 dos 30 cortes, com pico 0,2–0,35 s depois do corte, a −6,6 dB da fala.
+  - Nenhum whoosh nem som tátil.
+  - Master −14 LUFS (padrão do Felipe).
+- **Câmera:**
+  - Nunca parada: push-in de 3–30%/s, pans de 200–900 px por plano e giro de 1–5°.
+  - **Arranque + deriva:** ~todo o zoom do plano acontece no 1º quarto, logo depois do corte (mediana 97% dos planos com zoom).
+    Depois a câmera só deriva devagar. Ela para e recomeça ~19 vezes por minuto, sem parar entre um ponto e outro.
+  - **Borrão de movimento:** quando a câmera corre, a imagem perde ~40% da nitidez (razão nitidez correndo/parada 0,60).
+  - Documentos, TV e site entram desfocados e focam em ~0,5 s (rack focus).
+  - O apresentador entra fechado (~1,4×) e desfocado e abre em 0,45 s.
+- **Grão:** fino e leve, medido em ~1 nível de desvio nos meios-tons da referência. Grão forte dobra o tamanho do arquivo e borra no TikTok.
+
+## Motor golpe: câmera em chicotes (02/11/2026, padrão para cena NOVA)
+**A/B desta skill APROVADO pelo Felipe em 02/11/2026** (`H:\Downloads\Edicoes_Claude\_Testes e demos\TesteMotion\TesteMotion_investigativa_AB_v1.mp4`): use `golpes` em TODA cena nova
+com câmera. Sem `golpes`, só ao reeditar vídeo de antes de 02/11.
+O Felipe achava os motions fracos. Medimos as referências de motion dele (earn.edits: `C:\Users\USER\Downloads\earn.edits_De6bR-1OtGX.mp4`,
+cientista a 30 q/s com blur nos chicotes; `earn.edits_DYURMKHoayc.mp4`, Buffett a 16 q/s) contra os nossos vídeos. Nas refs o plano
+dura 0,8–0,9 s; nos nossos durava ~3 s. A câmera das refs anda 4–5× mais rápido e chicoteia com blur. O motor foi criado na vox-edit2,
+o A/B foi APROVADO ("B aprovado, aplica") e ele pediu o mesmo aqui. **Toda cena nova usa o motor golpe**, menos o apresentador
+(`presInv` tem o punch-out próprio). Sem a opção `golpes`, a cena roda como antes (arranque + deriva); projeto antigo não muda.
+
+**O que ele faz no dossiê:**
+- **Plano novo a cada ~0,9 s sem cortar.** A câmera CHICOTEIA pela composição: tipografia → recorte, foto presa → outra foto do mural,
+  manchete → número marcado. Cada chicote dura ~0,8 s e começa ~0,2 s ANTES da palavra que ele mostra, com o pico caindo nela.
+  A mesma cena vira 3–6 enquadramentos.
+- **Curva do chicote (medida nas refs, `IV_GOLPE`):** a câmera arranca já a ~45% da velocidade de pico, chega ao pico em 20% do
+  tempo e desliza até zero. Metade do caminho é feita em 36% do tempo.
+- **Blur direcional só no pico** (feGaussianBlur na direção do movimento, acima de ~10 px/quadro); no deslize a imagem volta nítida.
+- **Mola nas entradas** (`IV_MOLA`, passa ~9% e assenta). Fotos e prints (`impressa`, entrada `foco`) chegam batendo de 1,22×.
+  As pessoas (`recorte`, entrada `sobe`) sobem e assentam. Os itens do mural são PRESOS batendo na parede (1,3× → mola).
+  Na cena com golpes, `entra` usa a mola sozinho; `mola: false` volta para a entrada antiga.
+- **Tranco** (câmera treme ~0,5 s e assenta):
+  - sozinho no BAQUE do corte (`corte: .2` = pico do baque do `trilha_inv.py`; `corte: false` desliga);
+  - sozinho quando um item do mural é preso naquela visita (`trancoItem`, 7 px);
+  - nos impactos que você marca: `golpes: [[t, 6–10]]` (número que conta, nome revelado, estado que acende, tarja que sai).
+- **Câmera nunca parada:** deriva de zoom (`deriva` .035/s) + câmera na mão (`mao` 6 px de tela). Os valores são um pouco acima dos
+  da vox-edit2 (.022 e 5) porque o fundo escuro esconde o movimento lento.
+- **A troca de cena é um chicote.** A cena sai em chicote (último plano em `d − .12` a `d − .25`, que continua depois do corte), e
+  a seguinte CHEGA no mesmo sentido: `planos[0]` fica fora do quadro, do lado de onde a câmera vem. Saiu para a direita? A próxima
+  chega da esquerda (x menor). O foco e a profundidade do mural continuam iguais (foco no item perto do centro, os outros desfocam).
+
+**Como ligar:**
+| cena | opção | coordenadas dos planos |
+|---|---|---|
+| `scene()` de tipografia/recorte (`palco`) | `camMove: camG(c => ({planos, golpes}))` (no lugar do `camC`) | `{x, y, z, r}` do mundo da cena, como o `camOlha` |
+| `muralCena` | `golpes: c => ({planos, golpes, trancoItem})` (no lugar do `cam`) | `{x, y, d, r}` da parede; `d` = distância (800–1400) |
+| `docCena` / `siteCena` | `golpes: c => ({...})` | `{x, y, z, r}` em FRAÇÃO da página |
+| `tvCena` / `mapaCena` | `golpes: c => ({...})` | como o `cam` delas (`camG` por dentro) |
+| `fotoCena` | `golpes: c => ({...})` | `{x, y, z}`: x, y em fração da foto, z ≥ 1 |
+
+`planos: [[t, {…}, dur]]`: `planos[0]` = pose de antes (fora do quadro, t qualquer); o 1º plano em `t = -.12` (a cena chega em chicote
+no corte); cada plano seguinte começa em `t` e dura `dur` (padrão .8; .85–.9 para recuo maior). `z` e `d` andam em escala log.
+Opções: `golpes` (trancos), `deriva` (.035), `mao` (6), `corte` (.2), `trancoCorte` (6), `trancoItem` (7, mural).
+
+**Regras de leitura (regra 2 do Felipe, a mesma da vox-edit2):**
+- o plano que mostra uma frase, um número marcado ou um print fica PARADO (só deslizando) **≥ 1 s** antes do próximo chicote;
+- nenhum chicote no meio de uma frase sendo lida: o chicote vem ~.2 s antes da frase, nunca depois de ela começar;
+- marca-texto: o chicote chega no trecho ANTES do marca-texto passar e a página fica parada enquanto ele passa
+  (no doc: chicote em `tb − .25` com a marca em `tb − .05`; o 2º trecho, ~1 s antes da marca);
+- enquadre o texto inteiro com margem ≥ 60 px. Confira `x ± 540/z`, `y ± 960/z`; no mural, a janela é `x ± 540·d/1000`.
+  O blur do chicote deixa o texto ilegível, então o que corta na borda no plano parado é erro;
+- a saída da cena pode chicotear só depois da última palavra lida (`d − .12` se a frase acaba colada no corte);
+- rótulos de uma palavra (estados no mapa) podem trocar a cada ~0,7 s, porque são a própria fala. Prefira um plano que mostre 2 rótulos.
+
+**Exemplo** (teste de 02/11, `projetos/teste_investigativa/work/iv_b.js`, S7 tipografia + recorte e S8 mural):
+```js
+// S7 — "Em 2006, venderam o sonho de industrializar o Nordeste."
+camMove: camG(c => {
+  const t06 = c.w('B19', '2006'), tv = c.w('B20', 'venderam'), td = c.w('B21', 'de'), tn = c.w('B21', 'Nordeste'), d = c.dur;
+  return { planos: [[-1, { x: 540, y: 250, z: 1.6, r: -4 }], [-.12, { x: 540, y: 640, z: 1.4, r: -1 }, .8],
+    [tv - .22, { x: 560, y: 900, z: 1.08, r: .6 }, .8], [td - .2, { x: 560, y: 905, z: 1.25, r: -.4 }, .8],
+    [d - .12, { x: 1350, y: 900, z: 1.4, r: 2 }, .85]],                 // sai para a DIREITA...
+    golpes: [[t06 + .15, 6], [tv - .4 + .45, 9], [tn + .1, 6]] };      // ...o Lula pousa com tranco
+}),
+// S8 — mural: "Anunciaram a ferrovia Transnordestina e prometeram três refinarias gigantescas de petróleo"
+golpes: c => {
+  const tt = c.w('B22', 'Transnordestina'), tp = c.w('B23', 'prometeram'), tr = c.w('B24', 'refinarias'), tg = c.w('B24', 'gigantescas'), d = c.dur;
+  return { planos: [[-1, { x: 900, y: 760, d: 1150, r: -3 }], [-.12, { x: 1850, y: 820, d: 950, r: -1 }, .8],   // chega da ESQUERDA
+    [tt - .22, { x: 1440, y: 1400, d: 900, r: .5 }, .8], [tp - .22, { x: 1640, y: 1130, d: 1250, r: 0 }, .8],
+    [tr - .22, { x: 2240, y: 1270, d: 880, r: 1.2 }, .8], [tg - .2, { x: 1880, y: 1140, d: 1380, r: .3 }, .85],
+    [d - .25, { x: 1950, y: 1900, d: 1150, r: 2 }, .85]] };            // trancos de Transnordestina e refinaria: automáticos
+},
+```
+S9 (mapa, os 3 estados) e S13 (documento com 2 marca-textos) no mesmo arquivo.
+
+**Medir:** `ferramentas/medir_motion.py <proj> --de T0 --ate T1` em janelas sem apresentador. Metas: plano ≤ 1,2 s, câmera parada
+≤ 20%, velocidade ≥ 4 px/q, metade do caminho em 28–45%. **Neste formato a régua engana:** o fluxo óptico não enxerga o preto liso
+nem o quadro borrado do chicote. A mesma janela deu 1,8 px/q no vídeo e 8,0 px/q depois de clarear. Meça também uma cópia clareada:
+`ffmpeg -i x.mp4 -vf "eq=gamma=1.8:contrast=1.3,unsharp=5:5:1.0" x_claro.mp4`.
+Para ver só a câmera, ponha `window.IV_BORRAO = 0` num `work/<prefixo>_z.js` temporário, que desliga o blur também no motor golpe.
+
+**Teste A/B (02/11/2026):** a janela 25,3–35,6 s do teste (tipografia + recorte, mural e mapa) está em
+`H:\Downloads\Edicoes_Claude\_Testes e demos\TesteMotion\TesteMotion_investigativa_AB_v1.mp4` (A atual | B motor novo). Medida na cópia clareada:
+
+| | A atual | B motor golpe | metas |
+|---|---|---|---|
+| plano médio | 3,43 s | 0,94 s | ≤ 1,2 |
+| câmera parada | 4% | 13% | ≤ 20% |
+| velocidade | 5,1 px/q | 8,0 px/q | ≥ 4 |
+| chicotes | 6 (35/min) | 10 (58/min) | — |
+| metade do caminho | 36% | 27% | 28–45% |
+
+No documento (S13, 46,8–54,6 s), a velocidade média CAI: 3,2 → 1,6 px/q (parada 6% → 15%). O motivo são as paradas de ≥ 1 s para
+ler o número marcado. Não é erro: a regra de leitura vence. Para mais vida, ponha mais planos entre os trechos marcados
+(recuo no parágrafo, chicote na palavra seguinte), nunca durante a marca.
+
+## Os cenários (tudo em corte seco; cada corte ganha o baque do `trilha_inv.py`)
+
+### 1. Apresentador: `presInv(beats, {z0, empurra, passos, luz, forca, frio, fy, capY})`
+- Tela cheia, plano médio (cabeça e ombros). É a ÚNICA cena colorida. O tom é frio (`frio` .5) com luz vermelha de um lado
+  (`luz: 'dir'|'esq'|false`, `forca` .55) e topo escuro.
+- A entrada é um **punch-out**: começa a 1,42× e desfocado e abre em 0,45 s. Depois o zoom NÃO fica parado: muda de nível em cada
+  beat (e no meio de beat > 2,6 s), alternando fechar e abrir (1,12 → 1,04 → 1,15...), com arranque de 0,5 s e borrão no salto, mais um
+  empurrão lento (`empurra` .06) e uma câmera na mão leve (`mao: false` desliga). `passos: c => [[t, nível]]` escolhe os momentos,
+  `niveis: [...]` os níveis, `passos: false` desliga.
+- A legenda de uma palavra vai no peito (y 1371). Mostre o apresentador **só olhando para a câmera** (regra do Felipe: confira o olhar em cada janela).
+- Fluxo áudio primeiro (HeyGen): o `presInv` só pode cair nos beats das peças do `work/apresentador.json`.
+
+### 2. Tipografia no escuro: `palco(r, S)` + `linha`/`linhaFala` + `tracejado` + `contador` + `impressa`
+- `palco` faz o fundo preto parado, com o centro levantado e um brilho vermelho ambiente (`brilho: [x, y]`). Ele já põe `S.cap` em `none`.
+- **Estilos** (`IV_EST`, em px a 1080 de largura):
+
+  | estilo | uso | fonte e cor |
+  |---|---|---|
+  | `V` | chave vermelha enorme ("350", "lowest", "2006,") | serifa 200, vermelho |
+  | `v` | chave vermelha ("worked from", "Nordeste.") | serifa 132, vermelho |
+  | `S` | serifa branca enorme | serifa 200, branco |
+  | `s` | serifa branca ("Wei,", "one-person", nome no mapa) | serifa 132, branco |
+  | `a` | ligação pequena ("8 at", "salary rate in China is") | Inter 400, 54 px |
+  | `A` | ligação forte ("night", "viewers") | Inter 600, 58 px |
+  | `r` | sans vermelha pequena ("companies on") | Inter 500, 54 px, vermelho |
+  | `n` | nome ao lado da foto | Inter 500, 48 px |
+
+  Opções por parte: `{s, cor, marca: true (fundo vermelho, como em "Viya."), letras: true, p (peso)}`.
+- `linha(p, [['The','a'], ['lowest','V']], x, y, {alinha, letras})`: y é a linha de base. `.at(lt, [t1, t2])` revela cada parte
+  desfocada → nítida. Com `letras: true`, as letras surgem fora de ordem (o "low t" da referência). `.marca(i, lt, t)` acende o fundo vermelho.
+  `linhaFala(p, c, 'B12', 'a a|V', x, y)` monta pelos tempos da fala.
+- **Ligações:**
+  - `tracejado(svg, curva(x0,y0,x1,y1,k) | reta(...), {c, w})` + `.draw(q)`;
+  - o fio vermelho tracejado vertical leva a câmera para baixo ("she set up → one-person companies");
+  - a curva tracejada liga o rótulo ao objeto.
+- **Números:** `contador(p, x, y, {de, para, casas, pre, suf, s})` + `.at(lt, t, d)` conta com borrão (0% → 3%). A fonte e o ano
+  vão logo abaixo, em sans 30 px cinza: a regra do kit é que **todo dado na tela tenha ano e fonte**.
+- **Câmera:** cena nova usa o motor golpe, `camMove: camG(c => ({planos, golpes}))` (seção acima). O `camC` abaixo é o modo
+  antigo, para reeditar vídeo de antes de 02/11. `camMove: camC(c => [[t, {x, y, z, r}], ...])`: a câmera OLHA para o ponto (x, y) do mundo da cena.
+  Monte a composição maior que a tela (3000 px de altura) e faça a câmera viajar até o elemento novo.
+  - Todas as câmeras do formato (`camOlha`/`camC`, mural, documento e site) já fazem o movimento da referência:
+    - **entrada:** começa 16% mais aberta (mural: mais longe) e chega à 1ª chave em ~0,55 s;
+    - **arranque:** cada trecho faz ~80% do caminho no começo e chega ainda andando, sem parar;
+    - **deriva:** zoom +1%/s até 4 s depois da última chave;
+    - **borrão de movimento** automático na direção do movimento.
+  - Ajustes:
+    - 3º item da chave: `'suave'` (acelera e freia), `'linear'` ou `'fixa'` (na 1ª chave: sem entrada);
+    - `window.IV_ENTRADA` (padrão .16) e `window.IV_BORRAO` (padrão .4; 0 desliga).
+  - Coloque a chave de chegada logo depois da palavra: a câmera chega cedo e deriva.
+- **Fotos soltas no escuro:** `impressa(p, 'i_x', cx, cy, w, {rot})` + `.at(lt, t)` é a foto P&B com borda branca, canto dobrado e
+  percevejo. A legenda do lugar vai embaixo em sans 30 px cinza.
+
+### 3. Pessoas: `recorte(p, 'p_x', cx, cy, w, {tarja})` + `nomeado(...)`
+- Pessoa recortada em P&B com retícula (`provas.py modo pessoa`). O pé some no preto (`funde`) e há um brilho leve na borda.
+  Ela entra subindo com borrão (`.at(lt, t, {k: 'sobe'})`).
+- **Tarja preta nos olhos** (`tarja: true` usa os olhos achados pelo `provas.py`) enquanto a pessoa ainda não foi nomeada.
+  `.tira(lt, c.w('B29','Lula'))` tira a tarja NO NOME, e o nome entra em serifa vermelha em cima (a revelação "Huang Wei,").
+  Use a tarja como recurso de narrativa e reutilize o mesmo recorte: na referência, a mesma pessoa aparece com tarja em 2 cenas antes do nome.
+- Anônimos (multidão, "os espectadores") vão com tarja em todos: `provas.py modo multidao`.
+- **Fila de pessoas citadas:** um recorte por pessoa, com `nomeado(p, svg, 'Fan Bingbing', xT, yT, xAlvo, yAlvo)` (nome em sans +
+  tracejado curvo até a pessoa). A câmera passa de uma pessoa para a outra.
+
+### 4. Mural de provas: `mural()` + `muralCena(beats, M, {cam})`
+- O fio do vídeo. Defina UM mural no `_b.js`:
+  - `M.foto(id, 'i_x', x, y, {w, rot, dz, desde})`;
+  - `M.doc(id, 'd_x', x, y, {w, recorte: [fy0, fy1]})`;
+  - `M.fio(a, b, {desde})`.
+
+  Cada visita mostra o que já foi citado. O que entra naquela fala é **preso na palavra** (`desde: ['B22', 'Transnordestina']`):
+  aparece com escala e foco, e o fio vermelho desenha.
+  A referência volta ao mural 5 vezes e ele vai crescendo. Faça de 3 a 5 visitas.
+- **Câmera 3D:** `cam: c => [[t, {x, y, d, r}]]`, onde (x, y) é o ponto da parede no centro e `d` a distância (1000 = tamanho real;
+  800–1250 é o bom; 1500 dá a vista geral).
+  - O foco vai sozinho para o item perto do centro; os outros desfocam pela profundidade (`dz`) e pela distância do centro.
+  - A luz é um poço no meio e a parede escurece nas bordas.
+  - Itens de 480–650 px de largura.
+- A parede `t_parede` é escura, com reboco visível, e fica a ~30–45/255 no centro (o mural da referência mede 42).
+
+### 5. Documento: `docCena(beats, 'd_x', {cam, inclina, faixa, rack, marcas})`
+- **Use print REAL**, do pedido fixo do Felipe: manchetes e dados reais, com marca-texto no que ele diz.
+  `pagina.py <proj> nome --url URL --marca "2,7 bi" --marca "foi lançada em 2010"` abre a página no Chromium do kit e faz assim:
+  1. rola a página para carregar tudo;
+  2. esconde o que é fixo (barras, cookies, anúncios);
+  3. começa ~960 px acima do título;
+  4. converte para P&B de xerox;
+  5. grava a posição de cada `--marca` em `render/marcas.js`.
+
+  Site que não abre limpo (paywall, página vazia): use `--texto pagina.json` com o título e os trechos reais (reprodução).
+  Nesse caso, diga nas fontes que é reprodução e dê o link.
+- A página fica num plano inclinado (`inclina` 13°): o topo foge, há uma **faixa nítida no meio** (`faixa` [.34, .66]) e o resto fica desfocado.
+  A vinheta é forte. A câmera `cam: c => [[t, {x, y, z, r}]]` usa **frações da página**.
+  `[[0, {x: .32, y: m[1], z: 1.05}], [t, {x: (m[0]+m[2])/2, y: (m[1]+m[3])/2, z: 1.75}]]` empurra até o número.
+- `rack: c => .05`: entra desfocada e foca. `marcas: c => [[...ivMarca('d_x', '2,7 bi'), c.w('B37', 'bilh')]]`: o marca-texto
+  vermelho (multiply) passa da esquerda para a direita no tempo da palavra.
+- A legenda continua, com sombra forte (`{modo: 'palavra', doc: true}`, padrão).
+- Uma página pode ser lida descendo: a referência fica 16 s num documento, indo de um trecho marcado a outro.
+
+### 6. Site impresso: `siteCena(beats, 'w_x', {w, inclina, rack, cam, marcas})`
+- É o print de site com borda rasgada (`provas.py modo site`), num plano inclinado sobre uma cópia gigante e desfocada dele mesmo
+  (o bokeh da referência). Entra desfocado e foca. Serve para a "página oficial que vende o esquema".
+
+### 7. TV de tubo: `tvCena(beats, {img: 'd_x' | clipe: 'nome', pos, rack, cam})`
+- Quarto escuro, a TV antiga em P&B e a prova na tela (print ou clipe de telejornal em `render/clips/`), com linhas de varredura.
+  A luz da tela vaza na parede. Entra desfocada e a câmera empurra e gira de leve. Use para "na televisão", "a imprensa noticiou".
+  `pos: '30% 0%'` escolhe o pedaço do print que aparece.
+
+### 8. Mapa escuro: `mapaCena(beats, {alvo: ['MA','CE'], acende, cam, rotulos})`
+- O Brasil fica escuro, com estados, traços de "relevo" e retícula. Os estados-alvo acendem em vermelho (piscando 0,18 s) na palavra,
+  com brilho. Os rótulos são serifa branca (`linha(p, [['Maranhão','s',{s:40}]], x, y)` nas coordenadas do mapa, que acompanham o zoom),
+  mais um tracejado vermelho até o lugar. O Brasil inteiro ocupa x 90–940, y 510–1380, e o Nordeste enche a tela com z ≈ 2.
+- A legenda some (`S.cap` none); para mostrar a frase antes do rótulo, use `S.cap = lt => lt < t ? {modo:'palavra'} : {modo:'none'}`.
+
+### 9. Foto de arquivo em tela cheia: `fotoCena(beats, 'f_x', {z0: 1.12, z1: 1.0, fx, fy})`
+- Foto P&B com retícula fina e zoom lento. A referência ABRE (zoom out), mas empurrar também vale. Use para lugar, obra ou cena real.
+  O `provas.py modo foto` já gera a imagem no tamanho que cobre a tela, para a retícula ficar fina (1:1).
+
+### 10. Final
+- A referência termina no apresentador e corta para preto. Se a fala pedir para seguir o perfil, use
+  `fimPerfilInv(beats, {perfil: 'perfil_felipedantasf', toque: ['B129', 'seguir']})`: o print REAL do perfil fica preso na parede
+  com percevejo e o botão vermelho Seguir → Seguindo. Pessoa sem print: `nome`.
+
+## Decidir o cenário de cada frase
+| a frase traz | cenário |
+|---|---|
+| pergunta, opinião, "você", virada | apresentador |
+| número, data, prazo, comparação | tipografia (+ contador) |
+| quem fez, nome de alguém | recorte (tarja até o nome) |
+| algo que entra na história (obra, empresa, pessoa, documento) | mural (prende o item novo) |
+| "a matéria", "o documento", "o governo publicou", valor exato | documento real com marca-texto |
+| "na TV", "a imprensa" | TV de tubo |
+| lugar | mapa escuro |
+| paisagem ou obra | foto de arquivo |
+
+**Gancho** (primeiros ~3 s, quadro 0 completo): a frase-gancho na tipografia com o número em vermelho e o protagonista recortado com
+tarja, ou o mapa acendendo. Antes dos ~12 s, o apresentador.
+
+**Estrutura da referência:** gancho → apresentador → prova (foto presa) → documento → nome revelado → mural → TV → apresentador →
+mural → documentos (o mecanismo) → mapa → apresentador → documentos → número → apresentador → site oficial → documento final →
+apresentador (fecho).
+
+## Legenda: `S.cap` em cada cena
+- `{modo: 'palavra'}` (padrão): uma palavra por vez, centro, y 1371. Opções: `y`, `x`, `s` (tamanho), `cor`, `doc: true` (sombra forte em fundo claro).
+- `{modo: 'none'}`: tipografia, mapa e fim. Pode ser uma função do tempo local (`lt => ...`) para trocar no meio da cena.
+- Grupos forçados para o vídeo todo: `IV_UNE.add('bolsa familia')` (texto normalizado, sem acento).
+- A legenda nunca atravessa o corte de cena e entra desfocada → nítida em 0,12 s, 0,02 s antes da palavra.
+
+## Som
+- `trilha_inv.py` (pelo `pipeline.py fechar`, via `etapas.json`). Opcional, `trilha.json` na raiz do projeto:
+  `{"bpm": 117, "tom": "Cm", "nivel": -19, "baque": -3, "sem_baque": ["B44"], "hits": [["B46", "2010"]], "sobe": [["B40", "B52", 2]]}`.
+  - `nivel` = LU da cama em relação à voz (ponderação K).
+  - `baque` = dB do baque contra o RMS da voz.
+  - Nas cenas, `EVENTS.push({t: c.t0 + lt, type: 'semBaque'})` tira o baque de um corte e `{type: 'baque'}` põe um extra.
+- Sem música: `--sem-trilha` no preparar (ou `SEM_MUSICA=1`). Os baques continuam, porque fazem parte da edição. Sem baques: `SEM_BAQUE=1`.
+- Efeito tátil do kit (`cue`): quase nada. A referência não tem whoosh. Se usar, nunca em cima do começo de palavra.
+- O teste mediu baque a −6,3 dB (referência −6,6), pico 0,23 s depois do corte e checa_fala com 0 palavra perdida por efeito.
+
+## Passo a passo
+1. **Projeto e transcrição** (raiz do kit): `pipeline.py preparar <nome> "C:/.../video.mp4"` (ou o mp3 da ElevenLabs no fluxo áudio primeiro).
+2. **Formato:** `python <esta pasta>/preparar_investigativa.py <nome> --prefixo xx [--avatar | --real] [--sem-trilha]`.
+3. **Corte e beats** como no kit. Os beats são de 1–2,5 s e quebram antes de nomes, valores e datas.
+4. **Pesquisa:** cada fato, número e data, com a fonte primária. **Ache as páginas reais** (matéria, diário oficial, relatório do TCU,
+   site do órgão) para os documentos e anote a URL e a data. O que estiver errado na fala NÃO vai para a tela: vai a legenda, mas nenhum
+   número, documento ou selo repete o erro. Avise o Felipe com a fonte.
+5. **Plano de cenas:** tabela `cena | beats | fala | cenário | prova (fonte) | âncora | câmera`. Confira:
+   - ~11,5 cortes/min, cenas de 2–8 s com algo novo a cada ~1 s;
+   - apresentador no perfil (real ~36%; avatar 25–35% em peças de 2–4 s);
+   - documentos reais em ~1/3 do tempo;
+   - mural visitado 3–5 vezes, crescendo.
+6. **Provas:**
+   - fotos → `export MSYS_NO_PATHCONV=1` e `python provas.py <nome> fotos/x.jpg:pessoa fotos/y.jpg:imp fotos/z.jpg:foto`
+     (Commons, Agência Brasil, as fotos que o Felipe mandar);
+   - páginas → `python pagina.py <nome> gazeta --url "https://..." --marca "R$ 2,7 bi"`;
+   - pessoas reais: só foto real (nunca IA).
+7. **Cenas** em `work/xx_b.js`, `xx_c.js`... (copie de `cenas_exemplo.js`). Comente cada uma com `// Sn — "fala"`.
+   `python montar.py <nome> xx` deve dar sintaxe, palavras e beats ok, apresentador no perfil e o ritmo previsto.
+8. **Prévias:** `python previas.py <nome>` (ou `--cenas 3,8,13`). Abra `out/pv/cenas_*.jpg`.
+9. **Fechar:** `pipeline.py fechar <nome> NOME --destino "H:\Downloads\Edicoes_Claude"`. Ele roda montar → render → mix + `trilha_inv.py` →
+   checa_fala → QA → entrega `_vN`.
+10. **Conferir:** `python ritmo.py <nome>` (9–15 cortes/min, nenhum trecho parado) e todas as `out/qa_*.jpg`.
+11. **Mensagem final** (português, curta):
+    - arquivos e onde estão;
+    - créditos gastos (o formato é 0 crédito quando só usa fotos e prints reais);
+    - avisos de checagem com fonte;
+    - **Fontes:** com os links das matérias printadas (veículo e data), das fotos (autor e licença) e dos dados.
+
+## Componentes — assinaturas
+- Legenda: `S.cap = {modo: 'palavra'|'none', x, y, s, cor, doc}`; `IV_UNE`.
+- Motor golpe: `camG(c => ({planos: [[t, {x, y, z, r}, dur]], golpes: [[t, amp]], deriva, mao, corte, trancoCorte}))`;
+  `golpes: c => ({...})` em `muralCena` (`{x, y, d, r}`, + `trancoItem`), `docCena`/`siteCena` (fração da página), `tvCena`, `mapaCena`,
+  `fotoCena`; `ivGolpes(o, {padrao, mx, my})`; curvas `IV_GOLPE`, `IV_MOLA` (também `'golpe'` como 3º item do `camOlha`); `entra(..., {mola: false})`.
+- Câmera: `camOlha([[t, {x, y, z, r}, 'arranque'|'suave'|'linear'|'fixa']])`, `camC(c => keys)`, `ivKf(keys, padrao)`, `IV_ARRANQUE`,
+  `ivBorrao(el, S, vx, vy, vb)` (cena com câmera interna: `S._mbProprio = true` e chame no update), `window.IV_ENTRADA`, `window.IV_BORRAO`.
+- Apresentador: `presInv(beats, {z0, dEntra, empurra, passos: c => [[t, nível]] | false, niveis, mao, luz, forca, frio, sat, fy, capY, vig, grao, build(L,S,c), update(S,c)})`.
+- Palco: `palco(r, S, {brilho, cap, vig, grao})`, `linha(p, partes, x, y, {alinha, k, letras})` + `.at(lt, ts, {d, blur, espalha, out})` +
+  `.marca(i, lt, t)` + `.caixa()`, `linhaFala(p, c, beat, spec, x, y, {entre, junta, de})` + `.at(lt)`, `tracejado(svg, d, {c, w, dash, gap})` +
+  `.draw(q)`, `reta()`, `curva(x0, y0, x1, y1, k)`, `contador(p, x, y, {de, para, casas, pre, suf, s, alinha})` + `.at(lt, t, d)`,
+  `tarja(p, x, y, w, h)` + `.at(lt, t0, t1)`, `impressa(p, 'i_x', cx, cy, w, {rot, tipo, dobra, pino, recorte})` + `.at(lt, t, {k})`.
+- Pessoas: `recorte(p, 'p_x', cx, cy, w, {tarja, funde, fundeDe})` + `.at()` + `.tira(lt, t)`, `nomeado(p, svg, txt, x, y, x1, y1, {estilo, alinha, curva})` + `.at(lt, t)`.
+- Mural: `mural().foto(id, asset, x, y, {w, rot, dz, desde, borda, dobra}).doc(...).fio(a, b, {desde})`, `muralCena(beats, M, {cam, foco, luz, cap, build, update})`.
+- Documento: `docCena(beats, 'd_x', {cam, inclina, faixa, rack, marcas, larg, cap})`, `ivMarca('d_x', 'trecho')`; site: `siteCena(beats, 'w_x', {w, inclina, rack, cam, marcas})`.
+- TV, mapa, foto e fim: `tvCena(beats, {img | clipe, from, pos, rack, cam, w})`, `clipe(p, nome, S, {from, rate, fx, fy, z0, z1, w, h, pb})`,
+  `mapaCena(beats, {alvo, acende, cam, rotulos(p, svg, S, c), cap})`, `fotoCena(beats, 'f_x', {z0, z1, fx, fy, cap})`,
+  `fimPerfilInv(beats, {perfil, toque, nome})`.
+- Entrada genérica: `entra(e, lt, t, {k: 'foco'|'cresce'|'sobe'|'desce'|'lado'|'brota', d, dx, dy, out})`. Do kit: `scene`, `el`, `box`, `svgAbs`,
+  `sv`, `tx`, `kf`, `E`, `clamp`, `lerp`, `cue`, `AS`, `c.b/c.e/c.w`.
+
+## Armadilhas (vistas no teste)
+- **`g_tv60.png` tem a tela OPACA:** desenhe a TV primeiro e a imagem por cima (o `tvCena` já faz isso). A tela preta na prévia vinha daí.
+- **Print começando no título deixa preto em cima da página** quando a câmera centra o título. O `pagina.py` já começa 960 px acima.
+  Se a página não tiver isso de topo, aceite a borda do papel no alto (a referência mostra a borda) ou foque um pouco abaixo.
+- **Foto de tela cheia em 1400 px é ampliada 2×** para cobrir 1080×1920, e a retícula fica grossa. O `provas.py modo foto` já gera
+  no tamanho certo; se passar `largura` à mão, use a que cobre a tela.
+- **Movimento "flutuando" (v1 do teste, 29/10):** com `E.inOut` entre as chaves, a câmera parava em cada ponto (37 paradas/min contra
+  19 na referência). Só 10% do zoom acontecia no começo do plano e nada tinha borrão, então a demo parecia menos dinâmica com a MESMA
+  velocidade média. Depois do arranque + entrada + deriva + borrão: 16 paradas/min, 52% do zoom no 1º quarto e borrão 0,61 (ref. 0,60).
+  O resto é proposital: as viagens da câmera até o elemento citado acontecem na palavra. Não volte para `E.inOut` como padrão.
+- **Filtro na camada da câmera:** o borrão usa `filter` no `r` da cena. Cena que precisa de outro filtro nessa camada (foco da TV)
+  põe o valor em `S._filtroExtra`; se escrever `r.style.filter` direto, o borrão apaga.
+- **Grão forte:** ±100 com opacidade .2 deixava o MASTER da demo com 248 MB em 66 s. Com o grão atual (±45, suavizado) caiu para 126 MB,
+  e o tiktok 2 passadas (1,15 Mb/s) ficou limpo. Não suba `S.grao` acima de ~.25.
+- **Mural longe demais** (d ≥ 1400 o tempo todo) deixa as fotos pequenas e a parede preta. Fique em d 800–1250 e itens de 480–650 px. A parede
+  precisa da luz no meio (`t_parede` a ~30/255 + o poço de luz).
+- **`c.w` cai na 1ª palavra do beat** se não achar: o `montar.py` avisa. Use prefixos sem acento ('Maranh', 'bilh').
+- **`linha` mede o texto na hora do build:** as fontes precisam estar no pré-carregamento (o preparar já põe `TimesInv` e Inter na lista `faces`).
+- **Rótulo fora do quadro:** composição maior que a tela + câmera viajando. Confira cada palavra nas prévias: "Estados Unidos" em x 300 saiu cortado.
+- **Câmera da ÚLTIMA cena com `c.dur`:** a última cena vai até o fim do áudio. Numa demo parcial, ou se houver cauda, o movimento se
+  espalha e a cena fica parada. Ancore a última chave numa palavra (`c.e('B49') + .4`).
+- **O mesmo print em duas cenas seguidas** (manchete → parágrafo da mesma matéria) fica melhor como UMA `docCena` que desce a página.
+- **Componente novo no skill:** copie de novo `componentes.js` para `work/<prefixo>_a.js` (o preparar faz isso) antes de montar.
+  Senão aparece "X is not defined".
+- **Abreu e Lima (PE) foi construída e opera.** Não use a foto dela como "refinaria cancelada". Confira o que cada foto mostra antes de pôr
+  numa frase.
+- Git Bash troca `a:b:c` por lista de caminhos: `export MSYS_NO_PATHCONV=1` antes do `provas.py`.
+
+## Checklist antes de entregar
+- [ ] `ritmo.py`: 9–15 cortes/min (referência 11,5) e nenhum trecho parado; algo novo a cada ~1 s.
+- [ ] Motor golpe em toda cena nova (menos o apresentador): plano a cada ~0,9 s amarrado à palavra, chegada e saída em chicote, blur só no
+  pico, mola nas entradas, tranco no baque. `medir_motion.py` na cópia clareada dentro das metas. Frase, print e marca-texto parados ≥ 1 s;
+  nada cortado na borda no plano parado.
+- [ ] Tudo P&B + vermelho. Só o apresentador tem cor (tom frio + luz vermelha) e só aparece olhando a câmera.
+- [ ] Perfil do apresentador ok no `montar.py` (avatar: 25–35%, peças de 2–4 s).
+- [ ] Documentos REAIS (print da página) com marca-texto vermelho no trecho dito, no tempo da palavra. Data, veículo e link nas fontes.
+- [ ] Mural visitado 3–5 vezes e crescendo; cada item preso na palavra que o cita; fio vermelho ligando.
+- [ ] Tarja nos olhos só até o nome (e em todo anônimo); nome em serifa vermelha na revelação.
+- [ ] Número na tela = dado conferido, com ano e fonte em sans pequena. Nada do que está errado na fala aparece como gráfico.
+- [ ] Legenda de UMA palavra (números, datas e nomes juntos) em todas as cenas, menos tipografia e mapa; nada cobre os olhos.
+- [ ] Cama grave constante + baque em cada corte. −14 LUFS. checa_fala sem palavra perdida por efeito.
+- [ ] Final no apresentador ou `fimPerfilInv` com o perfil REAL. Versão nova `_vN` em `entrega/` e `H:\Downloads\Edicoes_Claude`; fontes com links.

@@ -1,0 +1,18 @@
+/* formato vox-editorial: a fala vira tipografia em serifa, palavra por palavra, posição e estilo por cena (S.cap).
+   preparar_formato.py troca o bloco #cap ... #grain do render/index.html por este e adiciona as @font-face da Sitka. */
+#cap { position: absolute; z-index: 5; left: 540px; top: 400px; transform: translate(-50%, -50%); white-space: nowrap; text-align: center;
+  font-family: Sitka; color: #f3efe6; line-height: 1.04; background: none !important; box-shadow: none; opacity: 0; font-optical-sizing: auto; }
+#cap .w { display: inline-block; }
+#cap .l1 { font-size: calc(var(--fs, 96px) * .48); font-weight: 500; margin-bottom: .1em; }
+#cap .l2 { font-size: var(--fs, 96px); font-weight: 600; letter-spacing: -.005em; }
+#cap .l2.it { font-style: italic; }
+#cap .sm { font-size: .56em; font-weight: 500; font-style: normal; }
+#cap.m-title { text-shadow: -2px 3px 0 rgba(0,0,0,.30), 0 8px 18px rgba(0,0,0,.28); }
+#cap.m-dark { color: #1d1d1d; text-shadow: none; }
+#cap.m-glow { font-size: var(--fs, 80px); font-style: italic; font-weight: 600;
+  text-shadow: 0 0 2px rgba(0,0,0,.95), 0 0 18px rgba(255,255,255,.32), 0 4px 16px rgba(0,0,0,.9); }
+#cap.m-tag .tg { display: inline-block; font-size: var(--fs, 44px); font-weight: 500; background: #111; color: #f3efe6; padding: .16em .45em .24em;
+  box-shadow: 0 8px 18px rgba(0,0,0,.32); }
+#prog { position: absolute; z-index: 6; left: 90px; top: 1876px; width: 900px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.2); overflow: visible; }
+#progfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 3px; background: #f3efe6; box-shadow: none; }
+#grain { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: .14; mix-blend-mode: overlay; }

@@ -1,0 +1,830 @@
+// ============================================================================
+//  vox-edit2 — 3ª biblioteca do formato (work/<prefixo>_c.js; antes dela vêm o componentes.js da vox-editorial em <prefixo>_a.js
+//  e a premium_vox.js em <prefixo>_b.js; as cenas ficam em <prefixo>_d.js, _e.js ...). A gramática do projeto After Effects "High heels: from the battlefield to fashion"
+//  (EarnEdits, lido do .aep em 31/10/2026) sobre o vox editorial premium do Felipe:
+//   - o vídeo inteiro anda a 13 quadros/s (Posterize Time 13 + Noise 4): colagem em stop-motion          e2Poster / fps
+//   - câmera = vários nulls em série, cada um com UM movimento, sobrepostos no tempo; a saída continua
+//     depois do corte (o corte cai no meio do movimento)                                                  e2Rig
+//   - mundos de fundo: lousa escura com grunge, pergaminho, papel branco, cinza, quadriculado, pardo       e2Fundo / e2Ferve
+//   - recortes e impressões deslizam de fora da tela com SOMBRA LONGA (Shadow Studio)                     e2Item
+//   - a fala vira tipografia em 3D dentro da cena (serifa semibold), palavra por palavra, com as
+//     animações do projeto: desliza (Range Offset −100→100), digita, cai (bounce), brilho, esfarela        e2Fala / e2Texto
+//   - peças do Collage Kit: papel amassado que se abre (tiras de cor, cortina, fogo, nuvem)               e2Kit
+//   - poeira e riscos em screen, grão a 13 q/s, luz de janela em multiply, vinheta                        (automático)
+//   - moldura com fita e polaroides, manchas de tinta, linha do tempo de anos                              e2Moldura / e2Tinta / e2Anos
+//   - MOTOR "GOLPE" (padrão desde 02/11/2026, A/B aprovado pelo Felipe; medido nas refs earn.edits cientista + Buffett):
+//     plano novo a cada ~0,9 s com CHICOTES de câmera pelo mundo da cena (pico de velocidade em 20% do tempo, desliza até
+//     zero), blur direcional só no pico, entradas com mola, tranco nos impactos, câmera na mão; a cena roda a 30 q/s
+//     (o Collage Kit continua a 13 q/s)                                                                   e2Cena({golpes}) / e2Golpes
+// Tempos: número ou c => tempo (c.b, c.e, c.w são locais à cena). Curvas do AE em E2C.
+// ============================================================================
+const E2 = { tinta: '#1b1916', creme: '#f2ebdb', papel: '#efe9dc', verm: K.vermelho, amar: K.amarelo, azul: K.azul, lar: K.laranja,
+  serif: SERIF, disp: 'Archivo', fps: 13 };
+// bézier do AE com velocidade 0 nas chaves: P1 = (influência de saída, 0), P2 = (1 − influência de entrada, 1)
+function aeEase(u, oi, ii) {
+  u = clamp(u); if (u <= 0 || u >= 1) return u;
+  const x2 = 1 - ii; let lo = 0, hi = 1, s = u;
+  for (let k = 0; k < 24; k++) { s = (lo + hi) / 2; const x = 3 * (1 - s) * (1 - s) * s * oi + 3 * (1 - s) * s * s * x2 + s * s * s; if (x < u) lo = s; else hi = s; }
+  return 3 * (1 - s) * s * s + s * s * s;
+}
+// as curvas que o projeto usa: câmera (nulls) sai rápida e freia (0% → 66%); recortes quase lineares (17/17); texto em easy ease
+// (33/33) ou linear; entrada 33/100 e saída que acelera (100/1,7) do formato
+const E2C = { cam: u => aeEase(u, .01, .66), lin: u => aeEase(u, .17, .17), suave: u => aeEase(u, .33, .33), entra: u => aeEase(u, .333, 1),
+  sai: u => aeEase(u, 1, .017), pousa: u => aeEase(u, .08, .72), reta: u => clamp(u) };
+function aeWiggle(t, f, a, sem = 0) {           // wiggle(f, a) do AE: ruído suave
+  const x = t * f + sem * 17.31, i = Math.floor(x), u = x - i, q = u * u * u * (u * (u * 6 - 15) + 10);
+  const v = k => hrand(k * 1.618 + sem * 7.77) * 2 - 1; return a * lerp(v(i), v(i + 1), q);
+}
+// ---------- motor "golpe" (02/11/2026) ----------
+// curva do chicote medida nas refs: a velocidade começa a ~45% do pico, chega ao pico em 20% do tempo e desliza até zero
+// (metade do caminho em 36% do tempo); mola: passa ~9% do ponto e assenta
+const _gT = (() => {
+  const N = 200, v = [], p = [0];
+  for (let i = 0; i <= N; i++) { const u = i / N, a = u / .2; v.push(u < .2 ? .45 + .55 * a * a * (3 - 2 * a) : Math.pow(1 - (u - .2) / .8, 2.2)); }
+  for (let i = 1; i <= N; i++) p.push(p[i - 1] + (v[i - 1] + v[i]) / 2);
+  return p.map(x => x / p[N]);
+})();
+E2C.golpe = u => { u = clamp(u); const f = u * 200, i = Math.min(199, Math.floor(f)); return lerp(_gT[i], _gT[i + 1], f - i); };
+const _mol1 = 1 - Math.exp(-6) * Math.cos(8);
+E2C.mola = u => { u = clamp(u); return u >= 1 ? 1 : (1 - Math.exp(-6 * u) * Math.cos(8 * u)) / _mol1; };
+// e2Golpes(c, {planos: [[t, {x, y, z, r}, d]], golpes: [[t, amp]], deriva (zoom/s, .022), mao (px, 5)})
+// planos[0] = pose antes de tudo (fora do quadro: a cena CHEGA em chicote); cada plano seguinte é um chicote de d s (padrão .8)
+// que começa em t (ponha ~.2 s antes da palavra: o pico cai nela). x, y = ponto do mundo no centro da tela; z = zoom (log).
+function e2Golpes(c, o) {
+  const P = o.planos, G = o.golpes || [], dz = o.deriva ?? .022, mao = o.mao ?? 5;
+  return lt => {
+    let { x, y, z, r = 0 } = P[0][1];
+    for (let i = 1; i < P.length; i++) {
+      const [t, q, d] = P[i], k = E2C.golpe((lt - t) / (d ?? .8));
+      if (q.x !== undefined) x = lerp(x, q.x, k); if (q.y !== undefined) y = lerp(y, q.y, k);
+      if (q.z !== undefined) z = Math.exp(lerp(Math.log(z), Math.log(q.z), k)); if (q.r !== undefined) r = lerp(r, q.r, k);
+    }
+    z *= Math.exp(dz * lt);
+    x += aeWiggle(lt, 1.3, mao, 11.1); y += aeWiggle(lt, 1.1, mao, 12.7); r += aeWiggle(lt, .9, .3, 13.3);
+    for (const [t, a] of G) {
+      const u = lt - t; if (u < 0 || u > .6) continue;
+      const s = a * Math.exp(-u * 9);
+      x += s * Math.sin(u * 55); y += s * .8 * Math.cos(u * 47); r += s * .05 * Math.sin(u * 39); z *= 1 + s * .002;
+    }
+    return { x, y, z, r };
+  };
+}
+// blur direcional: velocidade da câmera na tela entre o quadro anterior e este -> feGaussianBlur (sx, sy) no mundo; só acima de
+// ~10 px/quadro (nas refs o blur aparece no pico do chicote e some no deslize)
+function e2Borra(S, rig, lt) {
+  if (!document.getElementById('e2mb')) {
+    const sv = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    sv.setAttribute('width', '0'); sv.setAttribute('height', '0'); sv.style.position = 'absolute';
+    sv.innerHTML = '<filter id="e2mb" x="-10%" y="-10%" width="120%" height="120%" color-interpolation-filters="sRGB"><feGaussianBlur id="e2mbg" stdDeviation="0 0" edgeMode="duplicate"/></filter>';
+    document.body.appendChild(sv);
+  }
+  const a = rig(lt - 1 / 30), b = rig(lt), zm = (a.z + b.z) / 2;
+  const rad = Math.abs(Math.log(b.z / a.z)) * 700, rot = Math.abs(b.r - a.r) * 12, vx = Math.abs(b.x - a.x) * zm, vy = Math.abs(b.y - a.y) * zm;
+  const sx = Math.min(24, Math.max(0, vx + rad * .5 + rot - 10) * .3), sy = Math.min(24, Math.max(0, vy + rad * .5 + rot - 10) * .3);
+  const m = S.mundo.el;
+  if (sx + sy < 1.6) { if (m.style.filter) m.style.filter = ''; return; }
+  document.getElementById('e2mbg').setAttribute('stdDeviation', `${sx.toFixed(1)} ${sy.toFixed(1)}`);
+  m.style.filter = 'url(#e2mb)';
+}
+const e2T = (c, t) => typeof t === 'function' ? t(c) : t;
+const e2Poster = (c, fps) => fps === 0 ? c : { ...c, lt: Math.floor(c.lt * (fps || E2.fps) + 1e-6) / (fps || E2.fps) };
+// sombra longa (Shadow Studio): três sombras empilhadas na mesma direção, cada vez mais longas e suaves
+const e2Sombra = (k = 1, a = 1) => `drop-shadow(${(9 * k).toFixed(0)}px ${(13 * k).toFixed(0)}px ${(3 * k).toFixed(0)}px rgba(0,0,0,${(.34 * a).toFixed(2)})) ` +
+  `drop-shadow(${(24 * k).toFixed(0)}px ${(34 * k).toFixed(0)}px ${(12 * k).toFixed(0)}px rgba(0,0,0,${(.22 * a).toFixed(2)})) ` +
+  `drop-shadow(${(46 * k).toFixed(0)}px ${(64 * k).toFixed(0)}px ${(28 * k).toFixed(0)}px rgba(0,0,0,${(.14 * a).toFixed(2)}))`;
+const e2SombraTxt = (k = 1, cor = 'rgba(0,0,0,') => [1, 2, 3, 4, 5, 6, 8, 10, 13].map(i => `${(i * 1.6 * k).toFixed(1)}px ${(i * 2.1 * k).toFixed(1)}px 0 ${cor}${(.30 - i * .02).toFixed(2)})`).join(',') +
+  `,${(30 * k).toFixed(0)}px ${(40 * k).toFixed(0)}px ${(30 * k).toFixed(0)}px ${cor}.18)`;
+
+// ---------- mundo com profundidade (parallax) ----------
+function e2Mundo(r, S) {
+  const m = el(r, 'div', 'position:absolute;left:0;top:0;width:1080px;height:1920px;overflow:hidden;');
+  S.mundo = { el: m, camadas: [] }; S.upd = S.upd || [];
+  return S.mundo;
+}
+// põe um elemento no mundo com o centro em (x, y); p = profundidade (1 = plano da câmera, < 1 fica atrás e anda menos)
+function e2Camada(M, e, o = {}) {
+  const L = el(M.el, 'div', 'position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0;');
+  L.appendChild(e);
+  const w = o.w ?? 1080, h = o.h ?? 1920, x = o.x ?? 540, y = o.y ?? 960;
+  e.style.position = 'absolute'; e.style.left = `${(x - w / 2).toFixed(1)}px`; e.style.top = `${(y - h / 2).toFixed(1)}px`;
+  const lay = { L, e, p: o.p ?? 1, x, y, w, h, rot: o.rot ?? 0, op: o };
+  M.camadas.push(lay);
+  return lay;
+}
+// entrada do item: de (esq/dir/cima/baixo/frente/cai/pop/kit) | sai: {t, para, d}
+function e2Ent(lay, lt) {
+  const e = lay.op.entra; if (!e) return { x: 0, y: 0, s: 1, r: 0, o: 1 };
+  const t = lay.op._t ?? 0, d = e.d ?? 1.2;
+  if (lt < t) return { x: 0, y: 0, s: 1, r: 0, o: 0 };
+  const u = clamp((lt - t) / d), q = (E2C[e.curva] || E2C.pousa)(u), dist = e.dist ?? 1150, r0 = e.r0 ?? 0;
+  const D = { esq: [-1, 0], dir: [1, 0], cima: [0, -1], baixo: [0, 1] }[e.de];
+  if (D) return { x: D[0] * dist * (1 - q), y: D[1] * dist * (1 - q), s: lerp(e.s0 ?? 1, 1, q), r: r0 * (1 - q), o: 1 };
+  if (e.de === 'frente') return { x: 0, y: 0, s: lerp(e.s0 ?? 1.9, 1, q), r: r0 * (1 - q), o: clamp(u * 4) };
+  if (e.de === 'cai') {                                  // queda com o "bounce" de inércia (expressão freq/decay do projeto)
+    const tt = lt - t, d0 = e.d ?? .38, qq = clamp(tt / d0), y = -(e.dist ?? 520) * (1 - qq * qq);
+    const b = tt > d0 ? Math.sin((tt - d0) * 22) * 60 * Math.exp(-(tt - d0) * 7) / 22 * (e.dist ?? 520) / 60 : 0;
+    return { x: 0, y: y + (tt > d0 ? -Math.abs(b) : 0), s: 1, r: r0 * (1 - clamp(tt / (d0 + .4))), o: 1 };
+  }
+  if (e.de === 'pop') { const k = clamp((lt - t) / (e.d ?? .4)); return { x: 0, y: 0, s: k >= 1 ? 1 : E.back(k), r: r0 * (1 - k), o: clamp(k * 5) }; }
+  return { x: 0, y: 0, s: 1, r: 0, o: 1 };
+}
+function e2Sai(lay, lt) {
+  const e = lay.op.sai; if (!e || lt < (lay.op._ts ?? 1e9)) return { x: 0, y: 0, s: 1, r: 0, o: 1 };
+  const q = E2C.sai(clamp((lt - lay.op._ts) / (e.d ?? .5))), dist = e.dist ?? 1300;
+  const D = { esq: [-1, 0], dir: [1, 0], cima: [0, -1], baixo: [0, 1] }[e.para];
+  if (D) return { x: D[0] * dist * q, y: D[1] * dist * q, s: 1, r: (e.r ?? 0) * q, o: 1 };
+  return { x: 0, y: 0, s: 1 + (e.ds ?? .1) * q, r: 0, o: 1 - q };
+}
+function e2Aplica(M, c, cam) {
+  const lt = c.lt;
+  M.camadas.forEach((lay, i) => {
+    const op = lay.op;
+    if (op._t === undefined) { op._t = op.entra ? e2T(c, op.entra.t ?? 0) : 0; op._ts = op.sai ? e2T(c, op.sai.t) : 1e9; op._ate = op.ate !== undefined ? e2T(c, op.ate) : 1e9; }
+    if (lt >= op._ate) { lay.L.style.display = 'none'; return; }
+    lay.L.style.display = '';
+    const p = lay.p, zl = Math.pow(cam.z, p), xl = 540 + (cam.x - 540) * p, yl = 960 + (cam.y - 960) * p;
+    const en = e2Ent(lay, lt), sa = e2Sai(lay, lt);
+    const v = op.vida === false ? 0 : (op.vida ?? 1), sem = i * 3.1 + lay.x * .01;
+    const wx = aeWiggle(lt, .5, 15 * v, sem), wy = aeWiggle(lt, .5, 15 * v, sem + 1), wr = aeWiggle(lt, 1, 3 * v, sem + 2) * .35;
+    const s = en.s * sa.s * (op.escala ? op.escala(lt) : 1), rr = lay.rot + en.r + sa.r + wr;
+    lay.L.style.transform = `translate(540px,960px) rotate(${(cam.r || 0).toFixed(3)}deg) scale(${zl.toFixed(5)}) translate(${(-xl).toFixed(2)}px,${(-yl).toFixed(2)}px) ` +
+      `translate(${(lay.x + en.x + sa.x + wx).toFixed(2)}px,${(lay.y + en.y + sa.y + wy).toFixed(2)}px) rotate(${rr.toFixed(3)}deg) scale(${s.toFixed(5)}) translate(${(-lay.x).toFixed(2)}px,${(-lay.y).toFixed(2)}px)`;
+    lay.L.style.opacity = (en.o * sa.o * (op.opacidade ? op.opacidade(lt) : 1)).toFixed(3);
+  });
+}
+
+// ---------- câmera: nulls em série ----------
+// mov = [[t0, t1, {x, y, z, r}, curva, volta]]: cada null faz um movimento (z multiplica, x/y/r somam). volta = true: o movimento
+// já começa feito e se desfaz (a chegada). O padrão imita a Camera 5 do projeto: chega de perto, sobe devagar, aproxima no meio
+// e empurra na saída, que termina DEPOIS do corte (o corte pega a câmera em movimento).
+function e2Rig(c, o = {}) {
+  const d = c.dur, lado = o.lado ?? (Math.round(c.t0 * 10) % 2 ? 1 : -1);
+  const mov = o.mov ? o.mov(c) : [
+    [0, Math.min(1.5, d * .55), { z: o.z0 ?? 1.2, y: o.y0 ?? 0, x: o.x0 ?? 0, r: o.r0 ?? 0 }, 'cam', true],
+    [.3, d + .3, { y: o.dy ?? 60 }, 'lin'],
+    [d * .4, d + .6, { z: o.dz ?? 1.06 }, 'cam'],
+    [d - .5, d + .9, { z: o.saiZ ?? 1.16, x: lado * (o.saiX ?? 0), r: lado * (o.saiR ?? 0) }, 'cam'],
+  ];
+  return lt => {
+    let x = o.cx ?? 540, y = o.cy ?? 960, z = o.z ?? 1, r = 0;
+    for (const [t0, t1, dv, cv, volta] of mov) {
+      const q = (E2C[cv] || E2C.cam)(clamp((lt - t0) / Math.max(.01, t1 - t0))), k = volta ? 1 - q : q;
+      if (dv.z) z *= Math.pow(dv.z, k); if (dv.x) x += dv.x * k; if (dv.y) y += dv.y * k; if (dv.r) r += dv.r * k;
+    }
+    return { x, y, z, r };
+  };
+}
+
+// ---------- cena ----------
+// e2Cena(beats, {fundo, fundoOp, golpes, rig, fps, janela (0..1 luz de janela), limpo (sem sobreposições: apresentador), retro (acabamento retrô, true),
+//                cap (legenda da vox; padrão none porque a fala vem da e2Fala), tr, lead, build(M, S, c), update(S, c, cam)})
+// golpes: c => opções do e2Golpes (PADRÃO desde 02/11: chicotes + blur, 30 q/s, fundo com folga 2.2). Sem golpes: rig = e2Rig
+// antigo (nulls em deriva, 13 q/s) — só para reeditar vídeo antigo.
+function e2Cena(beats, o = {}) {
+  const G = !!o.golpes;
+  scene({
+    beats, tr: o.tr ?? 'cut', bg: 'dark', camMove: camStill, lead: o.lead,
+    build(r, S, c) {
+      S.e2 = true; S.janela = o.janela ?? 0; S.limpo = !!o.limpo; S.cap = o.cap ?? { mode: 'none' }; S.poeira = o.poeira ?? .4; S.retro = o.retro ?? true;   // poeira .4 desde o motor foco (03/11/2026)
+      const M = e2Mundo(r, S);
+      if (o.fundo) S.fundo = e2Fundo(M, S, o.fundo, G ? { folga: 2.2, ...(o.fundoOp || {}) } : (o.fundoOp || {}));
+      S.rig = G ? e2Golpes(c, o.golpes(c)) : e2Rig(c, o.rig || {});
+      if (o.build) o.build(M, S, c);
+    },
+    update(S, c0) {
+      const c = e2Poster(c0, o.fps ?? (G ? 0 : undefined));
+      const cam = S.rig(c.lt);
+      (S.pre || []).forEach(f => f(S, c));        // posições dos itens que andam (vdMove), antes do e2Aplica
+      if (o.update) o.update(S, c, cam);
+      e2Aplica(S.mundo, c, S.cam2 || cam);
+      S.upd.forEach(f => f(S, c));
+      if (G && !S.cam2) e2Borra(S, S.rig, c.lt);
+    },
+  });
+}
+const e2CenaM = e2Cena;     // nome usado no teste A/B (projetos/teste_motion)
+
+// ---------- fundos ----------
+// e2Fundo(M, S, 'e2_escuro1' | 'e2_pergaminho' | 'e2_branco' | 'e2_cinza' | 'e2_quadriculado' | 'e2_pardo' | 'e2_papel_preto' | 'ferve:concrete01'
+//         | 't_papel' | qualquer asset, {p: .6, tom (filtro CSS), cor (multiply), folga: 1.45})
+function e2Fundo(M, S, nome, o = {}) {
+  const fer = nome.startsWith('ferve:'), k = o.folga ?? 1.45, w = 1080 * k, h = 1920 * k;
+  const d = el(document.createElement('div'), 'div', `width:${w}px;height:${h}px;overflow:hidden;background:#111;`);
+  const im = el(d, 'img', 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;');
+  if (!fer) im.src = AS(nome).src;
+  if (o.tom) im.style.filter = o.tom;
+  if (o.cor) el(d, 'div', `position:absolute;inset:0;background:${o.cor};mix-blend-mode:multiply;opacity:${o.forca ?? .85};`);
+  const lay = e2Camada(M, d, { w, h, p: o.p ?? .6, vida: false });     // p < 1: o fundo anda menos que a câmera e cobre panorâmicas longas
+  if (fer) {                                              // fundo que "ferve": 4–6 quadros de grunge trocando a ~8 q/s
+    const nm = nome.slice(6), n = (window.E2FERVE || {})[nm] || 4, fps = o.fpsFerve ?? 8;
+    S.upd.push((S_, c) => { const f = Math.floor(c.lt * fps) % n; const src = `e2ferve/${nm}/${String(f).padStart(2, '0')}.jpg`; if (im._f !== src) { im.src = src; im._f = src; } });
+  }
+  return lay;
+}
+
+// ---------- itens (recortes, impressões, imagens) ----------
+// e2Item(M, S, 'print_x' | 'g_x' | 'clip:nome' (iw, ih = tamanho do quadro; clip: {t0, de, rate}) | elemento, {x, y, w, p, rot, sombra (k da sombra longa; false sem), borda (borda branca de impressão),
+//        entra: {de, t, d, dist, curva, r0, s0}, sai: {t, para, d}, ate, vida, filtro})
+function e2Item(M, S, src, o = {}) {
+  let e, w = o.w ?? 600, h;
+  if (typeof src === 'string') {
+    const ehClip = src.startsWith('clip:'), a = ehClip ? { w: o.iw ?? 1080, h: o.ih ?? 818, src: '' } : AS(src); h = o.h ?? w * a.h / a.w;
+    e = el(document.createElement('div'), 'div', `width:${w}px;height:${h}px;`);
+    const pad = o.borda ? Math.round(w * .035) : 0;
+    if (o.borda) { e.style.background = '#f4f1ea'; e.style.padding = `${pad}px`; e.style.boxSizing = 'border-box'; }
+    const im = el(e, 'img', 'display:block;width:100%;height:100%;object-fit:cover;');
+    if (ehClip) e2Clip(im, S, src.slice(5), o.clip || {}); else im.src = a.src;
+    if (o.pos) im.style.objectPosition = o.pos;
+    if (o.filtro) im.style.filter = o.filtro;
+    e._img = im;
+  } else { e = src; h = o.h ?? w; }
+  if (o.sombra !== false) e.style.filter = e2Sombra(o.sombra ?? 1);
+  return e2Camada(M, e, { ...o, w, h });
+}
+// caixa vazia no mundo (w×h, centro em x, y): desenhe dentro com os auxiliares da vox (papel, barraV, grade100, fonte, rotulo...)
+// em coordenadas locais. lay.el é a div.
+function e2Caixa(M, S, o = {}) {
+  const w = o.w ?? 1080, h = o.h ?? 1920;
+  const d = el(document.createElement('div'), 'div', `width:${w}px;height:${h}px;`);
+  const lay = e2Camada(M, d, { vida: false, ...o, w, h }); lay.el = d;
+  return lay;
+}
+// trecho de vídeo REAL (render/clips/<nome>/0001.jpg ...) numa <img>, andando no ritmo da cena (13 q/s = stop-motion)
+// e2Clip(img, S, 'nome', {t0 (início local), de (quadro inicial), rate, n})
+function e2Clip(im, S, nome, o = {}) {
+  const n = o.n ?? (window.CLIPN || {})[nome] ?? 90;
+  im.src = `clips/${nome}/${String((o.de ?? 0) + 1).padStart(4, '0')}.jpg`;
+  S.upd.push((S_, c) => {
+    const f = Math.max(0, Math.min(n - 1, (o.de ?? 0) + Math.floor(Math.max(0, c.lt - e2T(c, o.t0 ?? 0)) * 30 * (o.rate ?? 1) + 1e-6)));   // + 1e-6: sem quadro repetido/pulado por arredondamento
+    const src = `clips/${nome}/${String(f + 1).padStart(4, '0')}.jpg`;
+    if (im._f !== src) { im.src = src; im._f = src; }
+  });
+}
+// moldura com fita (e2_moldura) ou polaroide (e2_polaroids) com uma impressão dentro
+function e2Moldura(M, S, src, o = {}) {
+  const tipo = o.tipo ?? 'moldura', A = { moldura: ['e2_moldura', 820, 1000, [130, 160, 672, 732]], polaroid: ['e2_polaroids', 500, 500, [144, 90, 374, 329]] }[tipo];
+  const w = o.w ?? 640, k = w / A[1], h = A[2] * k, [x0, y0, x1, y1] = A[3];
+  const d = el(document.createElement('div'), 'div', `width:${w}px;height:${h}px;`);
+  const im = el(d, 'img', `position:absolute;left:${(x0 * k).toFixed(0)}px;top:${(y0 * k).toFixed(0)}px;width:${((x1 - x0) * k).toFixed(0)}px;height:${((y1 - y0) * k).toFixed(0)}px;object-fit:cover;`);
+  if (src.startsWith('clip:')) e2Clip(im, S, src.slice(5), o.clip || {}); else im.src = AS(src).src;
+  im.style.objectPosition = o.pos ?? '50% 35%'; if (o.filtro) im.style.filter = o.filtro;
+  el(d, 'img', 'position:absolute;inset:0;width:100%;height:100%;').src = AS(A[0]).src;
+  d.style.filter = e2Sombra(o.sombra ?? 1);
+  return e2Camada(M, d, { ...o, w, h });
+}
+// mancha de tinta (multiply) atrás do assunto
+function e2Tinta(M, S, nome = 'e2_tinta1', o = {}) {
+  const a = AS(nome), w = o.w ?? 900, h = w * a.h / a.w;
+  const im = el(document.createElement('div'), 'img', `width:${w}px;height:${h}px;mix-blend-mode:${o.modo ?? 'multiply'};opacity:${o.op ?? .9};` + (o.inverte ? 'filter:invert(1);' : ''));
+  im.src = a.src;
+  return e2Camada(M, im, { vida: .4, ...o, w, h });
+}
+
+// ---------- peças do Collage Kit (papel amassado que se abre em stop-motion) ----------
+// e2Kit(M, S, 'tira_4' | 'cortina_1' | 'fogo_1' | 'nuvem_1' | ..., {x, y, w, rot, t, fps (13), txt, txtOp: {s, cor, fonte, it}})
+// tiras: 1 rosa, 2 laranja rasgada, 3 azul rasgada, 4 amarela, 5 ciano com dobra, 6 rosa fina, 7 verde, 8 círculo marrom
+function e2Kit(M, S, nome, o = {}) {
+  const n = (window.E2KIT || {})[nome] || 8, w = o.w ?? 700;
+  const d = el(document.createElement('div'), 'div', `width:${w}px;height:${w}px;`);
+  const im = el(d, 'img', 'position:absolute;inset:0;width:100%;height:100%;object-fit:contain;');
+  im.src = `e2kit/${nome}/00.webp`;
+  if (o.sombra !== false) d.style.filter = e2Sombra(o.sombra ?? .7);
+  let tx = null;
+  if (o.txt) {
+    const so = o.txtOp || {};
+    tx = el(d, 'div', `position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;text-align:center;` +
+      `font-family:${so.fonte ?? E2.serif};font-weight:${so.peso ?? 700};font-size:${so.s ?? 88}px;line-height:1;color:${so.cor ?? E2.tinta};` +
+      `${so.it ? 'font-style:italic;' : ''}letter-spacing:${so.esp ?? 0}px;opacity:0;`, o.txt);
+  }
+  const lay = e2Camada(M, d, { vida: .5, ...o, w, h: w });
+  const fps = o.fps ?? 13;
+  S.upd.push((S_, c) => {
+    const t = e2T(c, o.t ?? 0), f = c.lt < t ? -1 : Math.min(n - 1, Math.floor((c.lt - t) * fps));
+    d.style.visibility = f < 0 ? 'hidden' : 'visible';
+    const src = `e2kit/${nome}/${String(Math.max(0, f)).padStart(2, '0')}.webp`;
+    if (im._f !== src) { im.src = src; im._f = src; }
+    if (tx) tx.style.opacity = f >= n - 2 ? 1 : 0;
+  });
+  return lay;
+}
+
+// ---------- tipografia ----------
+// e2Texto(M, S, 'texto com *chave*', {x, y, s, fonte: 'serif'|'disp', peso, cor, corChave, it, larg, alin,
+//         anima: 'desliza'|'digita'|'cai'|'brilho'|'escala'|'surge', t, d, sai: 'esfarela'|'some'|'sobe', tSai, sombra: 'longa'|'suave'|false, p, rot,
+//         etiqueta: '#f4f1ea' (tira de papel atrás de cada linha))
+// *palavra* = chave (itálico, cor de destaque). Ponha o tempo da palavra dita em t.
+function e2Texto(M, S, txt, o = {}) {
+  const s = o.s ?? 96, fam = o.fonte === 'disp' ? E2.disp : E2.serif, peso = o.peso ?? (o.fonte === 'disp' ? 400 : 650);
+  const larg = o.larg ?? 960;
+  const box = el(document.createElement('div'), 'div', `width:${larg}px;text-align:${o.alin ?? 'center'};font-family:${fam};font-weight:${peso};font-size:${s}px;` +
+    `line-height:${o.lh ?? 1.04};color:${o.cor ?? E2.tinta};${o.it ? 'font-style:italic;' : ''}${o.caixa ? 'text-transform:uppercase;' : ''}letter-spacing:${o.esp ?? 0}px;`);
+  const sh = o.sombra === false ? '' : o.sombra === 'suave' ? '0 6px 14px rgba(0,0,0,.35)' : e2SombraTxt(s / 110);
+  const chars = [];
+  let alvo = box;
+  if (o.etiqueta) {     // tira de papel atrás de cada linha (texto sobre mapa de pontos, foto ou fundo agitado)
+    alvo = el(box, 'span', `background:${o.etiqueta} url(${ptex(o.etiqueta, 22)});padding:.06em .32em .14em;line-height:1.3;` +
+      `-webkit-box-decoration-break:clone;box-decoration-break:clone;box-shadow:6px 9px 12px rgba(0,0,0,.35);`);
+  }
+  txt.split(/\s+/).forEach((wd, wi, arr) => {
+    const chave = /^\*.*\*[,.;:!?]?$/.test(wd); const limpo = wd.replace(/\*/g, '');
+    const W_ = el(alvo, 'span', `display:inline-block;white-space:nowrap;overflow:${o.anima === 'desliza' ? 'hidden' : 'visible'};padding:0 .04em .12em;margin-bottom:-.12em;vertical-align:top;`);
+    if (chave) { W_.style.fontStyle = 'italic'; W_.style.color = o.corChave ?? E2.verm; }
+    [...limpo].forEach(ch => { const sp = el(W_, 'span', `display:inline-block;text-shadow:${sh};`, ch); chars.push(sp); });
+    if (wi < arr.length - 1) alvo.appendChild(document.createTextNode(' '));
+  });
+  const h = o.h ?? s * 1.3 * Math.max(1, Math.ceil(txt.length * s * .52 / larg));
+  const lay = e2Camada(M, box, { vida: o.vida ?? .5, ...o, w: larg, h, entra: o.entraItem, sai: o.saiItem });
+  let brilho = null;
+  if (o.anima === 'brilho') { box.style.position = 'absolute'; brilho = el(box, 'div', 'position:absolute;inset:-10% -5%;pointer-events:none;mix-blend-mode:overlay;opacity:0;' +
+    'background:linear-gradient(105deg, rgba(255,255,255,0) 35%, rgba(255,255,255,.95) 50%, rgba(255,255,255,0) 65%);background-size:250% 100%;'); }
+  const sem = (o.x ?? 540) * .013 + (o.y ?? 960) * .007, n = chars.length;
+  S.upd.push((S_, c) => {
+    const lt = c.lt, t = e2T(c, o.t ?? 0), d = o.d ?? Math.min(.9, .05 * n + .25), ts = o.sai ? e2T(c, o.tSai ?? 1e9) : 1e9;
+    chars.forEach((sp, i) => {
+      let y = 0, op = 1, sc = 1, r = 0, x = 0, bl = 0;
+      const a = o.anima || 'desliza';
+      if (a === 'desliza') { const q = E2C.suave(clamp((lt - t - (i / n) * d * .6) / (d * .4 + .08))); y = (1 - q) * s * 1.05; op = q > 0 ? 1 : 0; }
+      else if (a === 'digita') { op = lt >= t + (i / n) * d ? 1 : 0; }
+      else if (a === 'surge') { const q = clamp((lt - t - (i / n) * d * .5) / .25); op = q; y = (1 - E.out(q)) * 18; bl = (1 - q) * 6; }
+      else if (a === 'escala') { const q = clamp((lt - t - (i / n) * d * .4) / .3); sc = q >= 1 ? 1 : E.back(q); op = clamp(q * 4); }
+      else if (a === 'cai') { const tt = lt - t - (i / n) * d * .3, q = clamp(tt / .3); y = -(1 - q * q) * s * 3; op = tt > 0 ? 1 : 0;
+        if (tt > .3) y -= Math.abs(Math.sin((tt - .3) * 20) * Math.exp(-(tt - .3) * 8)) * s * .35; }
+      else if (a === 'brilho') { op = clamp((lt - t - (i / n) * d * .5) / .2); }
+      if (lt >= ts) {
+        const q = clamp((lt - ts - hrand(i * 3.3 + sem) * .12) / .45);
+        if (o.sai === 'esfarela') { x += (hrand(i * 1.7 + sem) - .5) * 160 * q; y += (hrand(i * 2.9 + sem) - .5) * 140 * q - 40 * q; r += (hrand(i * 4.1) - .5) * 70 * q; bl += q * 9; op *= 1 - q; sc *= 1 - .3 * q; }
+        else if (o.sai === 'sobe') { y -= q * 140; op *= 1 - q; }
+        else op *= 1 - q;
+      }
+      sp.style.opacity = op.toFixed(3);
+      sp.style.transform = (x || y || r || sc !== 1) ? `translate(${x.toFixed(1)}px,${y.toFixed(1)}px) rotate(${r.toFixed(1)}deg) scale(${sc.toFixed(3)})` : '';
+      sp.style.filter = bl > .3 ? `blur(${bl.toFixed(1)}px)` : '';
+    });
+    if (alvo !== box) alvo.style.opacity = (lt < t ? 0 : 1) * (lt >= ts ? 1 - clamp((lt - ts) / .35) : 1);
+    if (brilho) { const q = clamp((lt - t - d * .5) / .7); brilho.style.opacity = q > 0 && q < 1 ? 1 : 0; brilho.style.backgroundPosition = `${(100 - q * 100).toFixed(1)}% 0`; }
+  });
+  return lay;
+}
+// e2Fala(M, S, c, ['B21', 'B22'], {x, y, s, chave: ['mao', 'cartilha'], linha (letras por linha, 16), anima: 'desliza', sai, ate, cor})
+// a fala do beat como tipografia dentro da cena: cada palavra entra no tempo dela; as chaves em itálico vermelho. Substitui a
+// legenda da vox (S.cap none). Regra: o texto tem de ser LIDO (≥ 44 px na tela, parado ≥ 1 s) e só uma frase por vez.
+function e2Fala(M, S, c, beats, o = {}) {
+  const N = x => x.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9%]/g, '');
+  const ws = [].concat(...beats.map(b => c.words ? c.words(b) : (TIMING.beats.find(x => x.id === b) || { words: [] }).words));
+  const ch = new Set((o.chave || []).map(N));
+  const linhas = []; let cur = [];
+  const L = o.linha ?? 16, len = a => a.reduce((s, w) => s + w.w.length + 1, 0);
+  ws.forEach(w => { if (cur.length && len(cur) + w.w.length > L) { linhas.push(cur); cur = []; } cur.push(w); });
+  if (cur.length) linhas.push(cur);
+  const s = o.s ?? 92, lh = s * (o.lh ?? 1.3), y0 = (o.y ?? 960) - (linhas.length - 1) * lh / 2, out = [];
+  const t0c = c.t0;
+  linhas.forEach((ln, li) => {
+    const txt = ln.map(w => ch.has(N(w.w)) ? `*${w.w}*` : w.w).join(' ');
+    const sl = ch.size && ln.some(w => ch.has(N(w.w))) ? s * (o.kChave ?? 1.12) : s;
+    const lay = e2Texto(M, S, txt, { ...o, y: y0 + li * lh, s: sl, h: sl * 1.3, larg: o.larg ?? 1020,
+      t: ln[0].s - t0c - .04, d: Math.max(.25, ln[ln.length - 1].s - ln[0].s + .2), tSai: o.ate, sai: o.sai ?? (o.ate !== undefined ? 'some' : undefined), anima: o.anima ?? 'desliza' });
+    out.push(lay);
+  });
+  return out;
+}
+// e2Legenda(M, S, c, ['B01', 'B02'], {y: 300, s: 74, cor, chave, linha: 20, p: .25}) — a fala inteira da cena como tipografia em 3D:
+// um bloco por beat no tempo dele (cada palavra entra quando é dita), saindo logo antes do próximo. p baixo = quase fixo na tela
+// (a câmera anda e o texto continua legível). Substitui a legenda da vox.
+function e2Legenda(M, S, c, beats, o = {}) {
+  beats.forEach((b, i) => {
+    const prox = beats[i + 1];
+    e2Fala(M, S, c, [b], { p: .25, s: 74, linha: 20, y: 300, vida: .2, sai: 'sobe', ...o, ate: prox ? c.b(prox) - .22 : (o.ateFim ?? 1e9) });
+  });
+}
+// e2Anos(M, S, [[1949, t], [1976, t]], {x, y, s, cor, barra}) — a linha do tempo do projeto (1123, 1376, 1489, 1630): anos que entram
+// deslizando e barras de papel que crescem entre eles
+function e2Anos(M, S, anos, o = {}) {
+  const box = el(document.createElement('div'), 'div', `width:980px;height:${(o.s ?? 130) * 1.4}px;`);
+  const n = anos.length, xs = anos.map((a, i) => n === 1 ? 490 : 250 + i * 480 / (n - 1));
+  const bar = el(box, 'div', `position:absolute;left:${xs[0]}px;top:${(o.s ?? 130) * 1.25}px;height:14px;width:${xs[n - 1] - xs[0]}px;background:${o.barra ?? E2.verm};transform-origin:0 50%;transform:scaleX(0);`);
+  const L = anos.map(([a], i) => el(box, 'div', `position:absolute;left:${xs[i] - 200}px;top:0;width:400px;text-align:center;font-family:${E2.serif};font-weight:700;` +
+    `font-size:${o.s ?? 130}px;line-height:1.1;color:${o.cor ?? E2.creme};text-shadow:${e2SombraTxt((o.s ?? 130) / 110)};overflow:hidden;`, `<span style="display:inline-block">${a}</span>`));
+  const lay = e2Camada(M, box, { vida: .3, ...o, w: 980, h: (o.s ?? 130) * 1.4 });
+  S.upd.push((S_, c) => {
+    anos.forEach(([, t], i) => { const q = E2C.suave(clamp((c.lt - e2T(c, t)) / .45)); L[i].firstChild.style.transform = `translateY(${((1 - q) * 110).toFixed(1)}%)`; });
+    const ta = e2T(c, anos[0][1]), tb = e2T(c, anos[n - 1][1]);
+    bar.style.transform = `scaleX(${E2C.lin(clamp((c.lt - ta) / Math.max(.3, tb - ta))).toFixed(4)})`;
+  });
+  return lay;
+}
+
+// ---------- sobreposições do vídeo inteiro (poeira e riscos em screen, grão a 13 q/s, luz de janela, vinheta) ----------
+let _e2G = null;
+function e2Grao() {
+  if (_e2G) return _e2G;
+  _e2G = [0, 1, 2, 3].map(k => {
+    const cv = document.createElement('canvas'); cv.width = 540; cv.height = 960; const x = cv.getContext('2d'), im = x.createImageData(540, 960);
+    for (let i = 0; i < im.data.length; i += 4) { const v = 128 + (hrand(i * .37 + k * 91.3) - .5) * 255 * .9; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; }
+    x.putImageData(im, 0, 0); return cv.toDataURL('image/jpeg', .7);
+  });
+  return _e2G;
+}
+const _e2RC = renderCaptions;
+renderCaptions = function (t) {
+  _e2RC(t);
+  const S = (window.CUR_SCENE && CUR_SCENE.S) || {};
+  let o = window._e2Sob;
+  if (!o) {
+    // cada camada direto no #stage (um contêiner com z-index isolaria o mix-blend-mode e o screen viraria imagem escura por cima)
+    const st = $('stage'), mk = (tag, css) => el(st, tag, 'position:absolute;pointer-events:none;z-index:4;' + css);
+    o = window._e2Sob = {
+      p: mk('img', 'left:-60px;top:-60px;width:1200px;height:2040px;mix-blend-mode:screen;filter:contrast(2.4) brightness(.55);'),
+      r: mk('img', 'left:-60px;top:-60px;width:1200px;height:2040px;mix-blend-mode:screen;filter:contrast(1.8) brightness(.7);'),
+      g: mk('div', 'inset:0;mix-blend-mode:overlay;opacity:.1;background-size:540px 960px;'),
+      j: mk('div', 'inset:-300px;mix-blend-mode:multiply;opacity:0;transform:rotate(-16deg);filter:blur(40px);' +
+        'background:repeating-linear-gradient(90deg, #fff 0 380px, rgba(60,45,30,.5) 470px 520px, #fff 610px 760px);'),
+      v: mk('div', 'inset:0;background:radial-gradient(ellipse 80% 66% at 50% 46%, rgba(0,0,0,0) 60%, rgba(0,0,0,.34) 100%);'),
+    };
+    o.p.src = AS('e2_poeira').src; o.r.src = AS('e2_riscos').src;
+  }
+  const on = S.e2 && !S.limpo;
+  ['p', 'r', 'g', 'j', 'v'].forEach(k => { o[k].style.display = on ? 'block' : 'none'; });
+  if (!on) return;
+  const f = Math.floor(t * E2.fps), G = e2Grao();
+  o.p.style.opacity = (.5 * (S.poeira ?? 1)).toFixed(2); o.r.style.opacity = (.35 * (S.poeira ?? 1)).toFixed(2);
+  o.p.style.transform = `translate(${((hrand(f) - .5) * 60).toFixed(0)}px,${((hrand(f + .3) - .5) * 60).toFixed(0)}px)`;
+  o.r.style.transform = `translate(${((hrand(f + .6) - .5) * 80).toFixed(0)}px,${((hrand(f + .9) - .5) * 80).toFixed(0)}px) scaleX(${f % 2 ? -1 : 1})`;
+  o.g.style.backgroundImage = `url(${G[f % 4]})`;
+  o.j.style.opacity = (Math.min(.6, S.janela || 0) * .5).toFixed(2);     // luz de janela (Light-Pattern do projeto): sutil, faixas largas
+};
+
+// ============================================================================
+//  VIDA NA FOTO PARADA (02/11/2026, A/B aprovado pelo Felipe: "B aprovado, aplica"; teste projetos/teste_vida)
+//  Lições do tutorial do projeto After Effects "Lamborghini vs Ferrari" da EarnEdits (51 min, "mask layers + expressions"):
+//   - vdAdesivo   recorte/impressão/palavra que NASCE como papel em 5 quadros (máscara torta redesenhada quadro a quadro) +
+//                 borda branca irregular (Simple Choker −50 + Roughen Edges "cut") que aparece 1 quadro depois
+//   - vdCarro     carro de UMA foto de perfil: rodas recortadas em círculo girando pela distância andada, quique e inclinação
+//                 pela aceleração, tremida do motor, sombra de contato; troca = corte casado (a mesma foto envelhecida)
+//   - vdEsteira   fundo/estrada infinitos (Motion Tile + loopOut("continue")), postes passando
+//   - vdBoneco    personagem de UMA foto de perfil: cabeça, tronco e pernas por máscara; caminhada por fórmula (sen/cos do
+//                 tempo × velocidade, perna ±20°, tronco quicando) e cabeça girando no pescoço
+//   - vdPorta     porta de enrolar recortada da fachada subindo aos trancos, com o interior atrás
+//   - vdMove      move uma camada (o e2Aplica usa lay.x só como pivô): use nos S.pre ou no update da cena
+//   - acabamento retrô em toda e2Cena: borda desfocada (máscara invertida com feather), retícula em overlay, cintilação
+//  Os bonecos andam a 13 q/s (stop-motion; o tutorial usa 12); a câmera segue no motor golpe a 30 q/s.
+//  window.VD_B = false volta ao comportamento antigo (itens deslizando, sem roda/caminhada/porta/retrô) para um novo A/B.
+// ============================================================================
+window.VD_B = window.VD_B ?? true;
+const VD = { fps: 13 };
+const vdQ = lt => Math.floor(lt * VD.fps + 1e-6) / VD.fps;          // tempo em stop-motion
+// move uma camada do mundo (o e2Aplica usa lay.x só como pivô; a posição é o left/top do elemento)
+function vdMove(lay, x, y = lay.y) { lay.x = x; lay.y = y; lay.e.style.left = `${(x - lay.w / 2).toFixed(1)}px`; lay.e.style.top = `${(y - lay.h / 2).toFixed(1)}px`; }
+
+// ---------- filtros SVG: borda de papel irregular ----------
+function vdDefs() {
+  if (document.getElementById('vdDefs')) return;
+  const sv = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  sv.id = 'vdDefs'; sv.setAttribute('width', '0'); sv.setAttribute('height', '0'); sv.style.position = 'absolute';
+  // borda: alfa dilatado (choker negativo) + ruído deslocando a borda (roughen edges) + cor de papel; o recorte vai por cima
+  const borda = (id, r, esc, freq) => `<filter id="${id}" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">` +
+    `<feMorphology in="SourceAlpha" operator="dilate" radius="${r}" result="d"/>` +
+    `<feTurbulence type="fractalNoise" baseFrequency="${freq}" numOctaves="3" seed="7" result="n"/>` +
+    `<feDisplacementMap in="d" in2="n" scale="${esc}" xChannelSelector="R" yChannelSelector="G" result="rd"/>` +
+    `<feFlood flood-color="#f4f1ea"/><feComposite in2="rd" operator="in"/></filter>`;
+  sv.innerHTML = borda('vdBorda', 14, 26, .03) + borda('vdBordaF', 9, 18, .045);
+  document.body.appendChild(sv);
+}
+// polígono torto do quadro k da revelação (0..3; 4 = inteiro): 11 pontos em volta do centro, raio crescendo
+function vdPoli(k, sem, cx = 50, cy = 50) {
+  const R = [16, 38, 62, 86][k], n = 11, pts = [];
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + hrand(sem + k * 3.1) * .5, r = R * (.72 + hrand(sem + i * 1.7 + k * 9.3) * .56);
+    pts.push(`${(cx + Math.cos(a) * r * 1.05).toFixed(1)}% ${(cy + Math.sin(a) * r).toFixed(1)}%`);
+  }
+  return `polygon(${pts.join(',')})`;
+}
+// quadro da revelação no tempo lt (−1 = ainda não nasceu, 4 = inteiro)
+const vdQuadro = (lt, t) => lt < t ? -1 : Math.min(4, Math.floor((lt - t) * VD.fps + 1e-6));
+
+// ---------- vdAdesivo: recorte (PNG com alfa) ou impressão que nasce como papel ----------
+// vdAdesivo(M, S, 'asset', {x, y, w, p, rot, t (nascer), fino (borda fina), sombra, vida, sai: {t, para, d}, ate, filtro,
+//           txt: 'texto' (adesivo de palavra: papel recortado com a palavra), txtOp: {s, cor, fonte, it, larg}})
+// A: e2Item com a borda reta da impressão, entrando em 'pop' no mesmo tempo
+function vdAdesivo(M, S, src, o = {}) {
+  vdDefs();
+  const t = o.t ?? 0;
+  if (!window.VD_B) {
+    if (o.txt) return e2Texto(M, S, o.txt.replace(/<i[^>]*>(.*?)<\/i>/g, '*$1*'), { x: o.x, y: o.y, s: o.txtOp?.s ?? 90, cor: o.txtOp?.cor ?? E2.tinta, p: o.p, rot: o.rot, t, d: .35,
+      anima: 'escala', sombra: 'suave', sai: o.sai ? 'some' : undefined, tSai: o.sai?.t, etiqueta: '#f4f1ea' });
+    return e2Item(M, S, src, { ...o, borda: !o.alfa, entra: { de: 'pop', t, d: .4 } });
+  }
+  let w = o.w ?? 600, h, mk;
+  const box = el(document.createElement('div'), 'div', '');
+  if (o.txt) {            // palavra: o "recorte" é o próprio bloco de texto (fundo de papel com alfa nas bordas)
+    const so = o.txtOp || {};
+    mk = () => el(box, 'div', `position:absolute;left:0;top:0;padding:.1em .35em .18em;white-space:nowrap;font-family:${so.fonte ?? E2.serif};` +
+      `font-weight:${so.peso ?? 700};font-size:${so.s ?? 90}px;line-height:1.05;color:${so.cor ?? E2.tinta};${so.it ? 'font-style:italic;' : ''}` +
+      `background:${so.fundo ?? '#f4f1ea'};`, o.txt);
+    const med = mk(); med.style.visibility = 'hidden'; document.body.appendChild(box); w = med.offsetWidth; h = med.offsetHeight; box.remove(); med.remove();
+  } else { const a = AS(src); h = w * a.h / a.w; mk = () => { const im = el(box, 'img', `position:absolute;left:0;top:0;width:${w}px;height:${h}px;`); im.src = a.src; if (o.filtro) im.style.filter = o.filtro; return im; }; }
+  box.style.cssText = `width:${w}px;height:${h}px;`;
+  const borda = mk(), fig = mk();
+  borda.style.filter = `url(#${o.fino ? 'vdBordaF' : 'vdBorda'})`;
+  if (o.txt) borda.style.color = 'transparent';
+  if (o.sombra !== false) box.style.filter = e2Sombra(o.sombra ?? .8);
+  const lay = e2Camada(M, box, { vida: o.vida ?? .6, ...o, w, h, entra: undefined });
+  const sem = (o.x ?? 540) * .031 + (o.y ?? 960) * .017, r0 = o.rot ?? 0;
+  S.upd.push((S_, c) => {
+    const lt = c.lt, tt = e2T(c, t), kf = vdQuadro(lt, tt), kb = vdQuadro(lt, tt + 1 / VD.fps);
+    box.style.visibility = kf < 0 ? 'hidden' : 'visible';
+    fig.style.clipPath = kf >= 4 || kf < 0 ? '' : vdPoli(kf, sem);
+    borda.style.clipPath = kb >= 4 ? '' : kb < 0 ? 'inset(50%)' : vdPoli(kb, sem + .5);
+    lay.rot = r0 + (kf >= 0 && kf < 4 ? (hrand(sem + kf) - .5) * 7 : 0);      // a mão ajeitando o papel enquanto nasce
+  });
+  return lay;
+}
+
+// ---------- vdEsteira: faixa infinita (Motion Tile + loopOut("continue")) ----------
+// vdEsteira(M, S, 'asset' | null, {x, y, w, h, p, dist: lt => px andados, fator (paralaxe, 1), estrada: true (asfalto desenhado),
+//           itens: {src, w, gap, y} (postes passando)}). A: tudo parado (dist = 0) — o fundo some só por ser igual
+function vdEsteira(M, S, src, o = {}) {
+  const w = o.w ?? 1600, h = o.h ?? 400, f = o.fator ?? 1;
+  const d = el(document.createElement('div'), 'div', `width:${w}px;height:${h}px;overflow:${o.itens ? 'visible' : 'hidden'};`);
+  if (o.estrada) {
+    d.style.background = `linear-gradient(180deg, #5d5a55 0 7%, #8c877d 7% 10%, #2f2e2c 10% 100%)`;
+    const ruido = el(d, 'div', `position:absolute;inset:0;opacity:.45;mix-blend-mode:overlay;background-image:url(${e2Grao()[1]});background-size:540px 960px;`);
+    const faixa = el(d, 'div', `position:absolute;left:-400px;right:-400px;top:${(h * .56).toFixed(0)}px;height:${Math.round(h * .05)}px;` +
+      `background:repeating-linear-gradient(90deg, #e9e3d2 0 160px, rgba(0,0,0,0) 160px 300px);opacity:.9;`);
+    d._mov = [[ruido, .5, 540], [faixa, 1, 300]];
+  } else {
+    const a = AS(src);
+    d.style.backgroundImage = `url(${a.src})`; d.style.backgroundSize = `${(h * a.w / a.h).toFixed(0)}px ${h}px`; d.style.backgroundRepeat = 'repeat-x';
+    if (o.tom) d.style.filter = o.tom;
+    d._mov = [[d, 1, h * a.w / a.h, true]];
+  }
+  const itens = [];
+  if (o.itens) {
+    const it = o.itens, a = AS(it.src), iw = it.w, ih = iw * a.h / a.w, n = Math.ceil(w / it.gap) + 2;
+    for (let i = 0; i < n; i++) { const im = el(d, 'img', `position:absolute;top:${(it.y ?? h - ih).toFixed(0)}px;width:${iw}px;height:${ih.toFixed(0)}px;`); im.src = a.src; itens.push(im); }
+    d._it = { gap: it.gap, iw, n };
+  }
+  const lay = e2Camada(M, d, { vida: false, ...o, w, h });
+  S.upd.push((S_, c) => {
+    const lt = window.VD_B ? vdQ(c.lt) : 0, x = (o.dist ? o.dist(lt) : 0) * f;
+    d._mov.forEach(([e, k, per, bg]) => { const v = -((x * k) % per); if (bg) e.style.backgroundPosition = `${v.toFixed(1)}px 0`; else e.style.transform = `translateX(${v.toFixed(1)}px)`; });
+    if (d._it) { const { gap, n } = d._it; itens.forEach((im, i) => { const px = ((i * gap - x) % (n * gap) + n * gap) % (n * gap) - gap; im.style.left = `${px.toFixed(1)}px`; }); }
+  });
+  return lay;
+}
+
+// ---------- vdCarro: carro de foto parada com as rodas girando ----------
+// vdCarro(M, S, 'asset', {x, y, w, p, rodas: [[cx, cy, r], ...] em px da imagem, anda: lt => deslocamento x na tela (px),
+//         esteira: lt => px que a estrada andou (o carro parado e o chão correndo), quique (1), motor (tremida, 1), troca: [[t, 'asset']]
+//         (corte casado: a mesma foto envelhecida), sombra})
+// A: e2Item parado andando pelo mesmo "anda" (desliza inteiro, sem roda, sem quique)
+function vdCarro(M, S, src, o = {}) {
+  const a = AS(src), w = o.w ?? 900, k = w / a.w, h = a.h * k;
+  const box = el(document.createElement('div'), 'div', `width:${w}px;height:${h}px;`);
+  const somb = el(box, 'div', `position:absolute;left:6%;right:6%;bottom:${(-h * .02).toFixed(0)}px;height:${(h * .09).toFixed(0)}px;border-radius:50%;` +
+    `background:radial-gradient(ellipse at 50% 50%, rgba(0,0,0,.55), rgba(0,0,0,0) 70%);filter:blur(6px);`);
+  const corpo = el(box, 'div', `position:absolute;left:0;top:0;width:${w}px;height:${h}px;transform-origin:50% 92%;`);
+  const im = el(corpo, 'img', `position:absolute;left:0;top:0;width:${w}px;height:${h}px;`); im.src = a.src;
+  const rodas = [], B = window.VD_B;
+  if (B) (o.rodas || []).forEach(([cx, cy, r]) => {
+    const R = r * k * (o.rRoda ?? .97), d = el(box, 'div', `position:absolute;left:${(cx * k - R).toFixed(1)}px;top:${(cy * k - R).toFixed(1)}px;width:${(2 * R).toFixed(1)}px;` +
+      `height:${(2 * R).toFixed(1)}px;border-radius:50%;background-image:url(${a.src});background-size:${w}px ${h.toFixed(1)}px;` +
+      `background-position:${(-(cx * k - R)).toFixed(1)}px ${(-(cy * k - R)).toFixed(1)}px;`);
+    rodas.push({ d, R, cx: cx * k, cy: cy * k });
+  });
+  if (o.sombra !== false) corpo.style.filter = e2Sombra(o.sombra ?? .5);
+  const lay = e2Camada(M, box, { vida: false, ...o, w, h });
+  const x0 = lay.x, troca = (o.troca || []).map(([t, s]) => [t, AS(s).src]);
+  (S.pre = S.pre || []).push((S_, c) => { const lt = B ? vdQ(c.lt) : c.lt; vdMove(lay, x0 + (o.anda ? o.anda(lt) : 0)); });
+  S.upd.push((S_, c) => {
+    const lt = B ? vdQ(c.lt) : c.lt, an = o.anda ? o.anda(lt) : 0, es = o.esteira ? o.esteira(lt) : 0;
+    let src_ = a.src; troca.forEach(([t, s]) => { if (lt >= e2T(c, t)) src_ = s; });
+    if (im._s !== src_) { im.src = src_; im._s = src_; rodas.forEach(r => r.d.style.backgroundImage = `url(${src_})`); }
+    if (!B) return;
+    const dist = an + es, ang = dist / (rodas[0]?.R || 60) * 57.2958;
+    rodas.forEach(r => { r.d.style.transform = `rotate(${ang.toFixed(1)}deg)`; });
+    // aceleração (diferença finita no relógio da cena) -> inclinação e quique da suspensão
+    const dt = 1 / VD.fps, v = (o.anda ? o.anda(lt) - o.anda(lt - dt) : 0) + (o.esteira ? o.esteira(lt) - o.esteira(lt - dt) : 0);
+    const v0 = (o.anda ? o.anda(lt - dt) - o.anda(lt - 2 * dt) : 0) + (o.esteira ? o.esteira(lt - dt) - o.esteira(lt - 2 * dt) : 0);
+    const acc = (v - v0) / dt, q = o.quique ?? 1;
+    S_._vdAcc = S_._vdAcc ?? {}; const mem = S_._vdAcc[x0] = S_._vdAcc[x0] || { s: 0 };
+    const alvo = clamp(-acc * .0016 * q, -4, 4);
+    const motor = (o.motor ?? 1) * (Math.abs(v) > .5 ? 1.6 : .8) * Math.sin(lt * 97) ;
+    corpo.style.transform = `translateY(${(motor - Math.abs(alvo) * 2.2).toFixed(2)}px) rotate(${alvo.toFixed(2)}deg)`;
+    somb.style.transform = `scaleX(${(1 + Math.abs(alvo) * .01).toFixed(3)})`;
+  });
+  return lay;
+}
+
+// ---------- vdBoneco: personagem de uma foto, em partes ----------
+// vdBoneco(M, S, 'asset', {x, y, w, p, pescoco: [px, py], quadril: [px, py] (px da imagem), anda: lt => 0..1 (intensidade da caminhada),
+//          vel (passos/s, 1.6), dobra (graus da perna, 20), cabeca: lt => graus (negativo = olha para cima), corpo: lt => graus})
+// A: a foto inteira parada
+function vdBoneco(M, S, src, o = {}) {
+  const a = AS(src), w = o.w ?? 500, k = w / a.w, h = a.h * k, B = window.VD_B;
+  const box = el(document.createElement('div'), 'div', `width:${w}px;height:${h}px;`);
+  if (o.sombra !== false) box.style.filter = e2Sombra(o.sombra ?? .6);
+  if (!B) { el(box, 'img', `position:absolute;inset:0;width:100%;height:100%;`).src = a.src; return e2Camada(M, box, { vida: .4, ...o, w, h }); }
+  const [nx, ny] = o.pescoco.map(v => v * k), [hx, hy] = o.quadril.map(v => v * k);
+  const parte = (clip, ox, oy, extra = '') => { const d = el(box, 'div', `position:absolute;inset:0;transform-origin:${ox.toFixed(1)}px ${oy.toFixed(1)}px;clip-path:${clip};${extra}`);
+    el(d, 'img', `position:absolute;inset:0;width:100%;height:100%;`).src = a.src; return d; };
+  const pernaT = parte(`inset(${(hy - 6).toFixed(0)}px 0 0 0)`, hx, hy, 'filter:brightness(.72) saturate(.9);');
+  const pernaF = parte(`inset(${(hy - 6).toFixed(0)}px 0 0 0)`, hx, hy);
+  const tronco = el(box, 'div', `position:absolute;inset:0;transform-origin:${hx.toFixed(1)}px ${hy.toFixed(1)}px;`);
+  const corpo = parte(`inset(${(ny - 4).toFixed(0)}px 0 ${(h - hy - 18).toFixed(0)}px 0)`, hx, hy); tronco.appendChild(corpo);
+  const cab = parte(`inset(0 0 ${(h - ny - 10).toFixed(0)}px 0)`, nx, ny); tronco.appendChild(cab);
+  const lay = e2Camada(M, box, { vida: .25, ...o, w, h });
+  const vel = o.vel ?? 1.6, dob = o.dobra ?? 20;
+  S.upd.push((S_, c) => {
+    const lt = vdQ(c.lt), A = o.anda ? o.anda(lt) : 0, ph = lt * vel * Math.PI * 2;
+    const th = Math.sin(ph) * dob * A;                          // perna: Math.sin(time * speed) * amount (Z rotation do tutorial)
+    pernaF.style.transform = `rotate(${(-th).toFixed(2)}deg)`; pernaT.style.transform = `rotate(${th.toFixed(2)}deg)`;
+    const bob = -Math.abs(Math.cos(ph)) * 9 * A;                 // tronco: Math.cos no Y, sobe a cada passo
+    tronco.style.transform = `translateY(${bob.toFixed(2)}px) rotate(${((o.corpo ? o.corpo(lt) : 0) + Math.sin(ph * 2) * .8 * A).toFixed(2)}deg)`;
+    cab.style.transform = `rotate(${((o.cabeca ? o.cabeca(lt) : 0) + Math.sin(ph + .6) * 1.5 * A).toFixed(2)}deg)`;
+  });
+  return lay;
+}
+
+// ---------- vdPorta: fachada com a porta de enrolar recortada subindo ----------
+// vdPorta(M, S, 'fachada', {x, y, w, p, porta: [x0, y0, x1, y1] (px da imagem), t (abre), d (s), dentro: 'asset' (o interior)})
+// devolve {lay, caixa (div para pôr o que fica DENTRO da porta, em px da tela da fachada), k}
+// A: a fachada parada (a porta não abre)
+function vdPorta(M, S, src, o = {}) {
+  const a = AS(src), w = o.w ?? 1080, k = w / a.w, h = a.h * k, B = window.VD_B;
+  const [x0, y0, x1, y1] = o.porta.map(v => v * k);
+  const box = el(document.createElement('div'), 'div', `width:${w}px;height:${h.toFixed(0)}px;`);
+  const jan = el(box, 'div', `position:absolute;left:${x0.toFixed(0)}px;top:${y0.toFixed(0)}px;width:${(x1 - x0).toFixed(0)}px;height:${(y1 - y0).toFixed(0)}px;overflow:hidden;background:#0d0c0b;`);
+  if (o.dentro) { const ad = AS(o.dentro); const di = el(jan, 'img', `position:absolute;left:50%;top:50%;width:${((y1 - y0) * 1.25 * ad.w / ad.h).toFixed(0)}px;height:${((y1 - y0) * 1.25).toFixed(0)}px;transform:translate(-50%,-52%);`); di.src = ad.src; }
+  const caixa = el(jan, 'div', `position:absolute;inset:0;`);
+  const folha = el(jan, 'div', `position:absolute;inset:0;background-image:url(${a.src});background-size:${w}px ${h.toFixed(1)}px;background-position:${(-x0).toFixed(1)}px ${(-y0).toFixed(1)}px;`);
+  const sombraP = el(jan, 'div', `position:absolute;left:0;right:0;height:40px;background:linear-gradient(180deg, rgba(0,0,0,.6), rgba(0,0,0,0));`);
+  const fach = el(box, 'img', `position:absolute;left:0;top:0;width:${w}px;height:${h.toFixed(0)}px;` +
+    `clip-path:path(evenodd, 'M0 0 H${w} V${h.toFixed(0)} H0 Z M${x0.toFixed(0)} ${y0.toFixed(0)} H${x1.toFixed(0)} V${y1.toFixed(0)} H${x0.toFixed(0)} Z');`);
+  fach.src = a.src;
+  const lay = e2Camada(M, box, { vida: false, ...o, w, h });
+  const H = y1 - y0;
+  S.upd.push((S_, c) => {
+    if (!B) { folha.style.transform = ''; sombraP.style.top = '-60px'; return; }
+    const lt = vdQ(c.lt), t = e2T(c, o.t ?? 0), u = clamp((lt - t) / (o.d ?? .9));
+    const q = E2C.entra(u), trem = u > 0 && u < 1 ? Math.sin(lt * 61) * 3 : 0;   // a porta sobe aos trancos
+    folha.style.transform = `translateY(${(-q * H * 1.02 + trem).toFixed(1)}px)`;
+    sombraP.style.top = `${(H * (1 - q) - 2).toFixed(1)}px`; sombraP.style.opacity = q > 0 && q < 1 ? 1 : 0;
+  });
+  return { lay, caixa, k, jan: [x0, y0, x1, y1] };
+}
+
+// ---------- acabamento retrô (padrão; e2Cena({retro: false}) desliga): cintilação, borda desfocada, retícula ----------
+// direto no #stage (contêiner com z-index isola o mix-blend-mode — armadilha da vox-edit2)
+const _vdRC = renderCaptions;
+renderCaptions = function (t) {
+  _vdRC(t);
+  const S = (window.CUR_SCENE && CUR_SCENE.S) || {};
+  if (!window.VD_B || S.retro === false) return;
+  let o = window._vdSob;
+  if (!o) {
+    const st = $('stage'), mk = (tag, css) => el(st, tag, 'position:absolute;pointer-events:none;' + css);
+    o = window._vdSob = {
+      // borda desfocada: Gaussian Blur numa máscara invertida com 100 px de feather (o centro fica nítido)
+      b: mk('div', 'inset:0;z-index:3;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);' +
+        '-webkit-mask-image:radial-gradient(ellipse 62% 54% at 50% 48%, rgba(0,0,0,0) 62%, #000 100%);mask-image:radial-gradient(ellipse 62% 54% at 50% 48%, rgba(0,0,0,0) 62%, #000 100%);'),
+      // retícula em overlay (a textura halftone do tutorial)
+      h: mk('div', 'inset:0;z-index:4;mix-blend-mode:overlay;opacity:.16;background-image:radial-gradient(circle at 50% 50%, #000 0 34%, rgba(0,0,0,0) 36%);background-size:7px 7px;'),
+      // cintilação de exposição (Exposure com a mesma expressão do tremor)
+      f: mk('div', 'inset:0;z-index:4;mix-blend-mode:soft-light;'),
+    };
+  }
+  const on = S.e2 && !S.limpo;
+  ['b', 'h', 'f'].forEach(k => { o[k].style.display = on ? 'block' : 'none'; });
+  if (!on) return;
+  const f = Math.floor(t * VD.fps), v = (hrand(f * 1.37 + 4.2) - .5) * 2;
+  o.f.style.background = v > 0 ? `rgba(255,248,230,${(v * .16).toFixed(3)})` : `rgba(0,0,0,${(-v * .14).toFixed(3)})`;
+};
+
+
+// ============================================================================
+//  MOTOR FOCO (03/11/2026, A/B aprovado pelo Felipe: "B aprovado, aplica"; teste projetos/teste_foco, trecho S09–S13 do BukeleHaiti)
+//  Pedido: "a velocidade parece atrapalhar o acompanhamento... muitos efeitos se perdem na tela e não são focalizados". Medido contra a
+//  referência earn.edits: a câmera NÃO era mais rápida (mesmo pico, mesmos chicotes/min); o olho é que perseguia o conteúdo:
+//  89% do movimento em panorâmica (ref 70%), 73–90 saltos do olho/min (ref 45), 2+ textos na tela 52–76% do tempo, legenda dentro do
+//  mundo (andava e borrava no chicote), itens deslizando das bordas ao mesmo tempo. Na B: 35 saltos/min, 99% do foco no miolo,
+//  pan > 8 px/q em 7% dos quadros, 0% de 2 textos juntos, 0% de letra andando.
+//   - e2Foco       câmera a partir de focos (centro do ASSUNTO): chegada curta de perto, <= 1 movimento por frase, zoom de ênfase,
+//                  deriva contínua; a panorâmica fica para a troca de cena (saída em chicote)
+//   - e2LegFixa    a legenda é o ÚNICO texto: FIXA na tela (fora do mundo: não anda nem borra no chicote), logo abaixo do assunto;
+//                  frase inteira no começo do beat, palavras acendendo quando ditas; chave em itálico; frase-chave pinta a tira ou
+//                  abre a tira do Collage Kit NO LUGAR da legenda
+//   - e2Numero     número grande = o assunto daquele instante (o mundo escurece; esconda a legenda com `oculta`)
+//   - e2Assuntos   um assunto por vez, grande (caixa 1000×760) e no centro; o seguinte TROCA NO MESMO LUGAR ou nasce em papel no
+//                  centro por cima do anterior, que escurece
+// ============================================================================
+const E2F = { yLeg: 1420, sLeg: 74, larg: 940, papel: '#f4f1ea', amar: '#ffd23a', lar: '#f08a3c', azul: '#2f63b8', verm: '#b3160b', creme: '#fbf7ee',
+  dy: 110, KB: { tira_2: [378, 381, 678], tira_4: [359, 361, 674] } };   // KB: faixa de cada tira do kit no quadro de 760 px [cx, cy, largura]
+const E2ASS = { iw: 1000, ih: 760, x: 540, y: 860, w: 1000, p: 1, borda: true, vida: .25 };   // o assunto: caixa 1000×760 no centro do mundo
+
+// e2Foco(c, [[t, x, y, z, d], ...], {dy (110), chega (200), sai (360), deriva (.032), mao (6), golpes}) -> opções do motor golpe
+// x, y = centro do ASSUNTO no mundo (a câmera fica dy abaixo: ele aparece acima do meio e a legenda cabe embaixo). O 1º foco é a
+// chegada (de perto, .5 s, o assunto já está na tela no quadro 0); cada seguinte é UM movimento que começa .2 s antes de t (d padrão
+// .7; zoom de ênfase = mesmo x, y com z maior); a saída é um chicote curto que atravessa o corte.
+function e2Foco(c, focos, o = {}) {
+  const DY = o.dy ?? E2F.dy, d = c.dur, f0 = focos[0], fl = focos[focos.length - 1], dx = o.chega ?? 200;
+  const pl = [[-1, { x: f0[1] - dx, y: f0[2] + DY, z: f0[3] * 1.1, r: -2 }]];
+  focos.forEach(([t, x, y, z, dd], i) => pl.push([i ? e2T(c, t) - .2 : -.12, { x, y: y + DY, z, r: 0 }, dd ?? (i ? .7 : .5)]));
+  pl.push([d - .18, { x: fl[1] + (o.sai ?? 360), y: fl[2] + DY, z: fl[3] * 1.1, r: 2 }, .5]);
+  return { planos: pl, golpes: o.golpes ?? [], deriva: o.deriva ?? .032, mao: o.mao ?? 6 };
+}
+
+// e2LegFixa(M, S, c, lista de beats, {chave: [...], oculta: [[t0, t1]], y (1420), s (74)}) — a legenda FIXA (fora do mundo).
+// Cada item da lista: 'B17' ou ('B18' com {cor: 'lar'|'amar'|'azul'|'papel', kit: 'tira_2'|'tira_4', rot}), em array de 2.
+// Uma frase (beat) por vez, inteira desde o começo do beat; palavras ainda não ditas a 38%, acesas quando ditas; chave em itálico
+// vermelho (amarelo na tira azul). kit: a tira do Collage Kit se abre no lugar da legenda (8 quadros em ~.3 s, começando .24 s antes do
+// beat; som crinkle) e o texto pousa em cima. oculta: esconde nesses tempos locais (ex.: enquanto um número grande é o assunto).
+function e2LegFixa(M, S, c, beats, o = {}) {
+  const r = M.el.parentNode, N = x => x.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9%]/g, '');
+  const ch = new Set((o.chave || []).map(N)), KB = E2F.KB;
+  const box = el(r, 'div', `position:absolute;left:${(1080 - E2F.larg) / 2}px;width:${E2F.larg}px;top:${o.y ?? E2F.yLeg}px;text-align:center;z-index:3;pointer-events:none;`);
+  const blocos = beats.map(b => {
+    const [id, bo] = Array.isArray(b) ? b : [b, {}];
+    const ws = (TIMING.beats.find(x => x.id === id) || { words: [] }).words;
+    const kit = KB[bo.kit] ? bo.kit : null, cor = E2F[bo.cor] || E2F.papel, claro = !kit && bo.cor === 'azul';
+    const lin = el(box, 'div', 'position:absolute;left:0;right:0;top:0;transform-origin:50% 0;display:none;');
+    let ki = null;
+    if (kit) { ki = el(lin, 'img', 'position:absolute;z-index:0;pointer-events:none;'); ki.src = `e2kit/${kit}/00.webp`; ki.style.filter = e2Sombra(.55); }
+    const sp = el(lin, 'span', (kit ? '' : `background:${cor} url(${ptex(cor, 22)});box-shadow:6px 9px 14px rgba(0,0,0,.35);`) +
+      `position:relative;z-index:1;padding:.06em .32em .14em;line-height:1.36;font-family:${E2.serif};font-weight:650;` +
+      `font-size:${o.s ?? E2F.sLeg}px;color:${claro ? E2F.creme : E2.tinta};-webkit-box-decoration-break:clone;box-decoration-break:clone;`);
+    const pal = ws.map((w, i) => {
+      const e = el(sp, 'span', '', w.w);
+      if (ch.has(N(w.w))) { e.style.fontStyle = 'italic'; e.style.color = claro ? E2F.amar : E2F.verm; }
+      if (i < ws.length - 1) sp.appendChild(document.createTextNode(' '));
+      return [e, w.s - c.t0];
+    });
+    return { lin, sp, pal, ki, kit, t0: c.b(id) - (kit ? .24 : .06), rot: bo.rot ?? 0 };
+  });
+  blocos.forEach((b, i) => { b.t1 = i < blocos.length - 1 ? blocos[i + 1].t0 : 1e9; if (b.kit) cue(c, 'crinkle', b.t0, { g: .2, d: .3 }); });
+  S.upd.push((S_, cc) => {
+    const lt = cc.lt, esc = (o.oculta || []).some(([a, z]) => lt >= a && lt < z);
+    blocos.forEach(b => {
+      const on = !esc && lt >= b.t0 && lt < b.t1;
+      b.lin.style.display = on ? 'block' : 'none';
+      if (!on) return;
+      const ini = Math.max(b.t0, ...(o.oculta || []).filter(([, z]) => z <= lt && z > b.t0).map(([, z]) => z));
+      if (b.kit) {
+        if (!b.kdim) {
+          const [kx, ky, kw] = KB[b.kit], k = (E2F.larg + 60) / kw, s = 760 * k;
+          b.ki.style.width = b.ki.style.height = `${s.toFixed(0)}px`;
+          b.ki.style.left = `${(E2F.larg / 2 - kx * k).toFixed(0)}px`; b.ki.style.top = `${(b.lin.offsetHeight / 2 - ky * k).toFixed(0)}px`; b.kdim = 1;
+        }
+        const f = Math.min(7, Math.floor((lt - b.t0) * 26)), src = `e2kit/${b.kit}/${String(Math.max(0, f)).padStart(2, '0')}.webp`;
+        if (b.ki._f !== src) { b.ki.src = src; b.ki._f = src; }
+        b.lin.style.opacity = 1; b.lin.style.transform = `rotate(${b.rot}deg)`;
+        b.sp.style.opacity = clamp((lt - b.t0 - .2) / .1).toFixed(3);
+      } else {
+        const q = clamp((lt - ini) / .12);
+        b.lin.style.opacity = q.toFixed(3);
+        b.lin.style.transform = `translateY(${((1 - E.out(q)) * 10).toFixed(1)}px) rotate(${b.rot}deg)`;
+      }
+      b.pal.forEach(([e, ts]) => { e.style.opacity = lt >= ts - .04 ? 1 : .38; });
+    });
+  });
+}
+
+// e2Numero(M, S, c, '~1,5 milhão', 'fonte · ano', t0, t1, {y (840), s (150), veu (.6)}) — número/palavra grande FIXO no centro do
+// assunto, com a fonte em letra pequena; o mundo escurece por trás. Esconda a legenda nesse tempo: e2LegFixa(..., {oculta: [[t0, t1]]}).
+function e2Numero(M, S, c, txt, fonteTxt, t0, t1, o = {}) {
+  const r = M.el.parentNode;
+  const veu = el(r, 'div', 'position:absolute;inset:0;background:#0c0a08;opacity:0;z-index:2;pointer-events:none;');
+  const box = el(r, 'div', `position:absolute;left:0;width:1080px;top:${o.y ?? 840}px;text-align:center;z-index:3;opacity:0;pointer-events:none;`);
+  el(box, 'div', `font-family:${E2.serif};font-weight:700;font-size:${o.s ?? 150}px;line-height:1;color:${E2F.creme};text-shadow:${e2SombraTxt(1.25)};`, txt);
+  if (fonteTxt) el(box, 'div', `margin-top:24px;font-family:${E2.serif};font-size:30px;color:#e9e1cf;`, fonteTxt);
+  S.upd.push((S_, cc) => {
+    const lt = cc.lt, a = e2T(cc, t0), z = e2T(cc, t1), on = lt >= a && lt < z, q = clamp((lt - a) / .24), qs = clamp((z - lt) / .14);
+    veu.style.opacity = (on ? (o.veu ?? .6) * Math.min(q * 1.6, 1) * qs : 0).toFixed(3);
+    box.style.opacity = (on ? Math.min(q * 2.5, 1) * qs : 0).toFixed(3);
+    box.style.transform = `translateY(-50%) scale(${(q >= 1 ? 1 : .86 + .14 * E.back(q)).toFixed(4)})`;
+  });
+}
+
+// e2Assuntos(M, S, c, [[src, t, o], ...], {x, y, w, ...E2ASS}) — um assunto por vez, grande e no centro. O 1º já está na tela (t
+// ignorado); cada seguinte entra no tempo t NO MESMO LUGAR: pousa (escala s0 1,08 -> 1 em .22 s; o anterior some .12 s depois) ou, com
+// o.papel, NASCE EM PAPEL (vdAdesivo, w 700) por cima do anterior, que escurece a 50%. VÍDEO REAL NUNCA TRAVA (pedido do Felipe, 03/11):
+// cada clipe tem de durar até a troca seguinte (ou o fim da cena) em velocidade normal; clipe curto = troque antes dele acabar
+// (ferramentas/clipe_parado.py acusa). src: 'clip:nome' (caixa 1000×760 com cover;
+// o.pos escolhe o recorte) ou um asset de imagem. o: {pos, rot, r0, s0, d (.22), filtro, clip: {t0, de, rate}, papel, w, sombra}. Devolve as camadas.
+function e2Assuntos(M, S, c, lista, oG = {}) {
+  const base = { ...E2ASS, ...oG }, out = [];
+  lista.forEach(([src, t, o = {}], i) => {
+    const tt = i ? e2T(c, t) : null, prox = lista[i + 1], tp = prox ? e2T(c, prox[1]) : null, pPapel = !!(prox && prox[2] && prox[2].papel);
+    if (i && o.papel) {
+      out.push(vdAdesivo(M, S, src, { x: base.x, y: base.y, w: o.w ?? 700, p: base.p, rot: o.rot ?? 3, t: tt, sombra: o.sombra ?? .9, filtro: o.filtro }));
+      return;
+    }
+    const clip = src.startsWith('clip:');
+    const op = { ...base, pos: o.pos, rot: o.rot ?? 0, filtro: o.filtro };
+    if (!clip) { delete op.iw; delete op.ih; op.h = base.ih; }
+    if (clip) op.clip = { t0: i ? tt : (o.clip?.t0 ?? -.3), de: o.clip?.de, rate: o.clip?.rate };
+    if (i) op.entra = { de: 'frente', t: tt, d: o.d ?? .22, s0: o.s0 ?? 1.08, r0: o.r0 ?? 0 };
+    if (tp != null) { if (pPapel) op.opacidade = lt => 1 - .5 * clamp((lt - tp) / .3); else op.ate = tp + .12; }   // coberto pelo seguinte em ~.06 s
+    out.push(e2Item(M, S, src, op));
+  });
+  return out;
+}

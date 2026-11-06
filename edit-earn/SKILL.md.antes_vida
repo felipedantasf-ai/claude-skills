@@ -1,0 +1,346 @@
+---
+name: edit-earn
+description: Formato "edit earn" (minidocumentário de mistério em camadas), vertical 9:16, com o Kit_Edicao_Vox_v2. Replica o anúncio do earn.edits (cientista russa, out/2026) pela receita do projeto After Effects original. Cada frase vira um MUNDO em camadas que nunca para, com o personagem principal CENTRADO entrando da câmera sobre o fundo desfocado, com etiqueta vermelha do nome e objetos-metáfora subindo atrás dele; P&B na virada. Matérias REAIS impressas na mesa com marca-texto e círculo vermelho; tipografia (data digitada, palavra por palavra na planta azul, palavras empilhando, letras 3D); fotos P&B na parede com flash; sala com TV; fechadura; íris; push vertical. Sem legenda corrida, malha de 6 px, cores vivas. Trilha de trap documental (pulso, 808, pad) com whoosh e impactos. Use quando o Felipe pedir "edit earn", "formato earn.edits", "minidocumentário/mistério em camadas", "igual ao vídeo da cientista russa" ou mandar esse vídeo como modelo, com gravação ou áudio da ElevenLabs + HeyGen.
+---
+
+# Formato edit-earn (minidocumentário em camadas, um mundo por frase)
+
+Modelo medido quadro a quadro, por fluxo óptico e no áudio do vídeo que o Felipe mandou em 31/10/2026
+(`C:\Users\USER\Downloads\earn.edits_De6bR-1OtGX.mp4`, 42,7 s, 720×1280, 30 fps). É um anúncio da EarnEdits (projetos de After Effects)
+feito no próprio estilo: a morte misteriosa de uma cientista russa contada com imagens geradas por IA compostas em camadas.
+Depois o Felipe conseguiu o **projeto After Effects original** (`siberias-mysterious-lab-death-the-plague-scare.zip`). O `.aep` foi lido
+direto do binário, com todas as chaves, curvas, expressões e efeitos, e o motor (v3) passou a seguir essa receita (seção "A receita do projeto After Effects").
+
+**Antes de planejar, abra os três arquivos desta pasta:**
+- `referencia_formato.jpg`: 21 quadros da referência, rotulados.
+- `ANALISE_REFERENCIA.md`: plano a plano, câmera, cor, textura, tipografia e som, com os números.
+- `exemplo_teste.jpg`: o que estes componentes produzem (projeto `projetos/teste_earn`, corte "Rei do Varejo" do Fernando, demo v9 de 40 s).
+
+Esta skill complementa o kit. Corte, beats, render, mix e entrega seguem `<kit>\CLAUDE.md`. As regras fixas do Felipe estão na memória:
+fala nunca muda; dado na tela com fonte e data; IA nunca faz rosto de pessoa real; perfil REAL no CTA; versão nova `_vN`;
+entrega = tiktok ≤ 29 MB + MASTER. Rode tudo com o Python do kit (`<kit>\.venv\Scripts\python.exe`). Em outro PC, a variável `VOX_KIT`
+aponta para a pasta do kit; sem ela, vale `H:\Edição Claude\Kit_Edicao_Vox_v2`.
+
+## Arquivos desta pasta
+| arquivo | para quê |
+|---|---|
+| `componentes.js` | biblioteca (vira `work/<prefixo>_a.js`): motor golpe (`golpes`, `EA_GOLPE`, `EA_MOLA`), `mundo`, `digitado`, `palavras`, `pilha`, `letras3D`, `jornal`, `parede`, `salaTV`, `presEA`, `perfilEA`, passagens `ea:sobe` / `ea:matte:<nome>` / `ea:wipe`, rig de câmera e curvas do AE, flash + onda, grade/ruído/vinheta |
+| `cenas_exemplo.js` | as 18 cenas da demo (0–40 s), comentadas. Copie a estrutura |
+| `estilo.css` | fontes (Playfair Display Italic, Fjalla One, Poppins 600/700/900, Times do Windows), sem legenda nem barra, grão e vinheta |
+| `fonts/` | as fontes livres (OFL) que o preparar copia para o projeto |
+| `texturas/` | `f_mesa_madeira.jpg` (mesa, CC0), `f_tv_familia.jpg` (sala de 1958, domínio público) e, do projeto da EarnEdits, `ea_grade.png` (grade de 6 px tingida), `ea_ruido.png` (grão) e `mattes/` (10 mattes de transição). Origem e licença em `CREDITOS.txt` |
+| `preparar_earn.py` | prepara o projeto: fontes, CSS, componentes, perfis, texturas, `render/eamattes.js` (mattes embutidas), `clipn.js`, `etapas.json` (montar + trilha_earn) |
+| `imagens_ea.py` | `foto` (cobre a tela), `pb` (P&B de arquivo), `logo`, `camadas` (separa personagem e fundo da MESMA foto: BiRefNet + LaMa) |
+| `clipes.py` | trechos de vídeo → `render/clips/<nome>/` a 30 fps em 9:16 (o mesmo do edit-founded) |
+| `trilha_earn.py` | cama de trap documental (pad + pulso ~118 BPM + 808 nos drops) a ~5,5 dB da voz, whoosh em todo corte, riser + impacto nas viradas, golpe nos punch-ins, batida de 81 BPM no final; mix −14 LUFS |
+| `montar.py` / `previas.py` / `ritmo.py` | montar: sintaxe, palavras, beats, apresentador, ritmo previsto. previas: folhas por cena. ritmo: trocas/min e trechos parados no vídeo pronto |
+| `medir.py` | o vídeo pronto contra as metas da referência: movimento (fluxo, quadros parados, picos de mudança), cor e CENTRALIZAÇÃO do personagem (BiRefNet) |
+
+## As 5 regras que fazem o formato funcionar (correções do Felipe na demo, 31/10)
+1. **Personagem principal CENTRADO, sempre em movimento.** Na referência o centro do assunto fica a 1,6% do meio da tela na mediana
+   (95% dos quadros a menos de 8%), a ~55% da altura, ocupando ~56% da altura. Tudo que importa vai para o meio: recorte com `tam` fica
+   centrado (`topo` = altura da cabeça), objetos sobem ATRÁS da cabeça e centrados (um de cada vez, como o caixão), a câmera só aproxima,
+   afasta e gira em volta do centro (nada de pan lateral arrastando o assunto). Trecho de vídeo real: recorte o 9:16 centrado na pessoa (`fx` do clipes.py).
+2. **Nada para.** Toda cena chega de mais perto e sai acelerando para dentro do corte seguinte (`eaRampa`), e no meio do plano a câmera
+   segue: RECUO contínuo nos 2/3 iniciais do vídeo e APROXIMAÇÃO no terço final, com giro lento. Recortes respiram em 3D (`vida3d`),
+   poeira de luz flutua, punch-ins com golpe nas palavras fortes (`socos`). Metas: fluxo médio ≥ 1,2 px/quadro, ≤ 15% de quadros quase
+   parados, ≥ 120 picos de mudança/min (`medir.py`).
+3. **Cor que salta:** looks saturados por mundo + luz colorida andando por cima (`eaLuz`) + fotos com contraste local e vibrance
+   (`imagens_ea.py`). Personagem real se mexe com VÍDEO real (trecho de telejornal), não só foto.
+4. **Trilha presente:** cama de trap documental (pulso grave tipo batimento, 808 saturado nos drops, pad escuro) a ~5 dB da voz — não um
+   drone escondido. Whoosh em todo corte, riser + impacto nas viradas, golpe nos punch-ins.
+5. **Texto na tela tem de ser LIDO, e o olho sabe onde focar** (regra do Felipe, 31/10). Vale para matéria, verbete, print, documento,
+   digitado, palavras e letras 3D:
+   - **Legível no celular:** o trecho que importa aparece com letra de pelo menos ~44 px na tela 1080×1920 (aproxime a câmera ou divida a
+     página em dois planos), parado o bastante para ler (≈ 0,3 s por palavra do trecho, nunca menos de 1 s) e sem borrão de movimento
+     nem onda por cima enquanto é lido. Contraste forte com o fundo; nada passando na frente.
+   - **Foco guiado:** em toda página há UM ponto de foco por vez, no tempo da fala: marca-texto e/ou círculo vermelho no trecho dito, a
+     câmera centrada nele (no meio da tela, regra 1) e o resto da página mais escuro ou desfocado. Título e veículo podem ser lidos de
+     relance; o corpo do texto em volta é textura, não para ler.
+   - Página inteira pequena, com o trecho marcado ilegível, não vale: aproxime até o trecho marcado ser a maior coisa na tela.
+
+## A receita em números (medida na referência)
+- **Fala:** narrador grave e lento, 2,2 palavras/s. As frases terminam com 0,3–0,8 s de respiro, e a passagem cai nesse respiro.
+  O corte do Felipe continua justo; use `GAP_BEFORE` (0,18–0,3 s) só em 2–4 viradas de mundo, onde entra um boom.
+- **Ritmo:** 19 planos em 42,7 s (**26,7 por minuto, média 2,25 s, o mais longo 4,3 s**). Dentro de cada plano há eventos
+  (camada entrando, etiqueta, palavra, marca-texto, círculo): **um estímulo novo a cada ~0,65 s**. Plano sem evento passa de 2,5 s? Ponha um.
+- **Câmera:** nunca para. O começo do plano é forte (60–85% do movimento no 1º quarto), depois a câmera deriva devagar e muitas vezes
+  acelera de novo no fim para dentro do corte seguinte. Nos 2/3 iniciais domina o RECUO (começa perto e revela); no terço final, a
+  APROXIMAÇÃO (close, fechadura, CTA). Mesas e planos vistos de cima giram 20–35°. Borrão de movimento em todo movimento rápido.
+- **Personagem:** a camada recortada entra da câmera (começa ~2,6× maior, borrada, vinda de baixo) e assenta em ~0,5 s, com o foco
+  puxando. Na referência ele se mexe porque é vídeo gerado a partir da imagem (gesto discreto); aqui o movimento vem de vídeo REAL
+  (trecho de telejornal) ou do parallax das camadas.
+- **Texto:** só ~20% do tempo e só em tipografia, jornal e etiqueta. **Sem legenda corrida.**
+- **Cor:** cada cena tem um mundo de cor (frio, quente, verde-azulado, vermelho). **P&B = morte, dúvida, negação**; o vermelho é o único
+  acento que sobrevive. Vinheta forte nas cenas escuras.
+- **Textura:** malha regular de 6 px sobre TODAS as imagens (10–26 níveis de contraste na referência). O apresentador fica sem malha e sem grão.
+- **Som** (separado com Demucs; a 1ª leitura, só pelos lados do estéreo, não via a bateria e o baixo, que ficam no centro):
+  bateria e baixo a −18 dB RMS, mais fortes que a voz em energia. É uma cama de trap documental: pulso grave contínuo (40–150 Hz) que vira
+  um pulso regular de ~118 BPM na virada; 808 saturado (Ré1/Dó#1, harmônicos até 1 kHz) sustentado 2–3 s no gancho (0 s), no jornal
+  (11,6 s) e no close P&B (32,4 s); pad escuro em 150–600 Hz. A cama fica a −23 dBFS entre as palavras, ~4,4 dB abaixo da voz (dissect).
+  Swish em quase todo corte, boom nas viradas, papel voando, sopro subindo antes do flash e disparo no flash; batida de 81 BPM só no CTA.
+  Referência −15 LUFS; o kit entrega −14.
+
+## A receita do projeto After Effects (lida do .aep em 31/10; o motor v3 copia)
+O `.aep` (RIFX) foi lido direto: 33 comps, 156 efeitos, todas as chaves com a curva e as expressões (`wiggle` em quase toda camada).
+Resumo do que ele ensina e onde está no motor (detalhes e números em `ANALISE_REFERENCIA.md`):
+- **Comp Main (42,6 s):** as 12 comps de cena em sequência, quase sempre em corte seco; só 3 passagens têm efeito (Linear Wipe de 1 s,
+  CC Light Wipe de 1 s na virada e na entrevista). Por cima de tudo: "Overlay Texture 02" (grade de 6 px tingida para 209,233,255) em
+  soft light a 70%, "Noise.png" em soft light, **Gaussian Blur 0 → 30 → 0 px em ±0,167 s em CADA corte** e Brightness com `wiggle(5,10)`.
+  → `renderCaptions` (grade e ruído do projeto, `eaPulso`, brilho tremendo).
+- **Câmera = rig de 3 níveis** (câmera 50 mm, zoom 1500 px): o Camera Controller faz a ENTRADA (≈1,3 s, curva 33%→100%: chega de cima
+  e de perto e assenta), um null do meio faz o RECUO contínuo (75%/75%) e o null de cima faz a SAÍDA no último 1 s (curva 100%→1,7%:
+  acelera recuando, descendo e girando 15–20° para dentro do corte). Nulls com `wiggle(1,15)`, câmera com `wiggle(.5,25)`. → `eaRampa`
+  e as curvas `EA_ENTRA`, `EA_SAI`, `EA_SUAVE`, `EA_RAPIDA` (bézier do AE com velocidade 0, em `aeEase`).
+- **Toda camada treme** com wiggle: pessoas `wiggle(3,10)` no Y, palavras `wiggle(3,25)`, primeiro plano `wiggle(2,15)`, objetos e fotos
+  `wiggle(.5,15)` + giro `wiggle(1,3)`; bonecos com cabeça, mãos e boca em `loopOut()` (±7–10° em 1,5–2,5 s). → `eaVida` + `aeWiggle`.
+- **Fundos com CC RepeTile (cópias espelhadas)** para a câmera recuar e girar sem mostrar borda. → `repete` (padrão em camada `cobre`).
+- **Viradas dentro da cena = Flash + Wave V2 (JerryFlow):** sólido branco em overlay 100% → 0 em 5 quadros + Turbulent Displace 36 → 0 px,
+  Motion Tile sacudindo (+3,25% da altura → 0 em 0,467 s, bordas espelhadas) e Directional Blur 55 → 0. → opções `flash` / `onda`.
+- **TV e "história" a 16 q/s** (Posterize Time). → `posterize: 16`.
+- **Looks:** CC Light Sweep (faixa larga), Gradient Ramp radial em soft light ("Depth"), Glow e Light Rays, Shadow Studio (sombra longa
+  de fotos e recortes), Curves/Looks quentes ou frios. → `eaLuz`, `luz`, `cor`.
+- **Parede ("07 History"):** a câmera começa LONGE (z −1940 → 0 em 3 s, curva 2%→100%: dispara no corte e freia devagar), as 4 fotos voam
+  dos cantos em 2 s (33%→100%, giro ±20° → 0) e só aparecem ~0,45 s depois do corte; no fim recua 490 e gira 20°. → `parede`.
+- **10 mattes de transição** (pasta "Transitions": tinta, líquido, centro, redonda, "up"; 0,27–2,3 s). → `tr: 'ea:matte:<nome>'`.
+
+## O motor golpe (02/11/2026; o mesmo da vox-edit2, onde o A/B foi aprovado: "B aprovado, aplica")
+**A/B desta skill APROVADO pelo Felipe em 02/11/2026** (`H:\Downloads\Edicoes_Claude\_Testes e demos\TesteMotion\TesteMotion_earn_AB_v1.mp4`): use `golpes` em TODA cena nova que tenha
+câmera. Sem `golpes`, só ao reeditar vídeo de antes de 02/11.
+O Felipe achava os motions fracos e mandou duas referências de motion do earn.edits: a própria cientista
+(`C:\Users\USER\Downloads\earn.edits_De6bR-1OtGX.mp4`, 30 q/s com borrão nos chicotes) e o Buffett (`earn.edits_DYURMKHoayc.mp4`,
+16 q/s em stop-motion). A régua `<kit>\ferramentas\medir_motion.py` mostrou que a demo v9 já tinha velocidade (o rig do AE), mas a
+FORMA estava errada: a entrada `EA_ENTRA` e a saída `EA_SAI` levam 64–73% do tempo para fazer metade do caminho (a referência faz em 36%),
+cada cena era um enquadramento só e o borrão ia em todo movimento, até no texto que se lê. O motor golpe complementa o motor v3
+(rig, wiggles das camadas, flash + onda, mattes, borrão de corte e grade continuam iguais):
+- **Chicote medido (`EA_GOLPE`, curva `'golpe'`):** arranca a ~45% da velocidade de pico, pico em 20% do tempo, desliza até zero.
+- **Planos dentro da cena:** a câmera viaja em chicotes de ~0,8 s de um assunto para o próximo, começando ~0,2 s antes da palavra
+  (`planos`). Num `jornal`, `{alvo: 'trecho'}` centra a câmera no trecho marcado (ou `'titulo'`/`'foto'`).
+- **Chegada e saída em chicote:** a cena chega perto do pico (`planos[0]` = pose de antes) e sai num chicote que o corte pega logo
+  depois do pico (padrão `sai: {z: .82 nos 55% iniciais | 1.3 depois, r ±6, y 80}`), no lugar da rampa lenta do AE.
+- **Borrão direcional só acima de ~10 px/quadro** (`window.EA_LIMIAR`): a deriva e o texto lido ficam nítidos.
+- **Mola nas entradas** (`EA_MOLA`, `entra.curva: 'mola'`; passa ~9% e assenta): padrão nas cenas com golpes para `esq/dir/cima/baixo/canto`
+  e para a página do `jornal`, menos nas camadas `atras` (os objetos que sobem por trás da cabeça mantêm o tempo calibrado com `EA_ENTRA`).
+- **Tranco** na câmera (`golpes: [[t, 6–10]]`); os `socos` e o `soco` do jornal já ganham tranco sozinhos. Câmera na mão (`mao`, 5 px).
+- **A deriva da regra 2 continua:** recua (−2%/s) nos 55% iniciais do vídeo e aproxima (+2%/s) depois.
+
+Como ligar: opção de cena `golpes` em `mundo`, `jornal`, `digitado`, `palavras`, `letras3D`, `parede`, `salaTV` e `perfilEA`. Sem ela a cena
+fica exatamente como no motor v3, então projetos antigos não mudam.
+- `golpes: true`: a `cam` da cena continua, com chegada e saída em chicote, borrão só no pico e tranco. Bom para cena curta (digitado de 0,8 s).
+- `golpes: c => ({planos: [[t, {x, y, z, r}, d]], golpes: [[t, amp]], deriva, mao, chega, sai})`: enquadramentos explícitos (a `cam` é
+  ignorada). `x, y` = ponto do mundo no centro da tela, `z` = zoom, `d` = duração do chicote (.7–.9). Exemplo do teste (S10 do
+  `teste_earn`, verbete da Mesbla):
+  ```js
+  golpes: c => {
+    const t6 = c.w('B16', '600'), t10 = c.w('B17', '10');
+    return { planos: [[-1, { x: 700, y: 760, z: 1.7, r: 24 }], [-.12, { x: 470, y: 900, z: 1.45, r: 6 }, .8],
+      [t6 - .22, { alvo: '600 milhões de reais', z: 2.0, r: 2 }, .9], [t10 - .22, { alvo: 'a ser pagos em dez anos', z: 2.0, r: -1 }, .7]],
+      golpes: [[.45, 7]] };
+  },
+  ```
+
+Regras do motor neste formato:
+1. **Personagem centrado (regra 1):** num `mundo` com personagem, os planos ficam em `x: 540` e andam só em `y`, `z` e `r` (ex.: subir para
+   mostrar o logo que nasce atrás da cabeça e voltar a ele, como a S7 do teste).
+2. **Leitura (regra 5):** o plano que mostra um trecho fica parado (só deslizando) ≥ 1 s antes do próximo chicote; nenhum chicote no meio de
+   frase lida. No jornal, corpo de 25–26 px pede `z` ≈ 2,0 (letra ~50 px); com `soco` (×1,2) use ~1,5 para a coluna não encostar na borda.
+3. **Chicote do tamanho certo:** foto e página têm muita textura; um chicote que junta zoom grande (> ~1,4×) e pan longo vira 0,3 s de
+   borrão. Prefira 1,2–1,4× de zoom ou ~300 px de pan por chicote.
+4. **Medir** a janela: `medir_motion.py <proj> --de T0 --ate T1` (metas: câmera parada ≤ 20%, velocidade ≥ 4 px/q, metade do caminho em
+   28–45%). O "plano médio" da régua conta QUADROS com mudança forte; nas cenas de foto e página do earn (grão + malha + textura) cada
+   chicote soma vários, então aqui ele sai baixo (~0,3 s) sem estar errado. Confira o borrão olhando os quadros.
+
+## Os componentes (assinaturas completas em `componentes.js`)
+Tempos aceitam número ou `c => tempo` (com `c.b`, `c.e`, `c.w` locais à cena; **nunca subtraia c.t0**). Toda cena aceita `tr`, `lead`, `boom`.
+- **Toda cena com câmera aceita `golpes`** (motor golpe, seção acima).
+- **`mundo(beats, {fundo, fundoOp, camadas, cam, golpes, pb, cor, fechadura})`**: o coração do formato. Fundo cobrindo a tela (desfocado por
+  `fundoOp.foco`) + camadas com profundidade `p` (parallax).
+  - Camada: `{fonte | el, x, y, w|h, p, atras, entra: {t, k: 'camera'|'baixo'|'cima'|'esq'|'dir'|'foco'|'pop'|'canto'}, sai: {t, k},
+    foco: [[t, px]], etiqueta: {txt, t, dx, dy, s}, troca: {t, d, cx, cy} (máscara de pincel), base (filtro CSS fixo), vida, sombra}`.
+    `entra.curva` troca a curva da entrada (`'mola'`, `'golpe'`, `'entra'`…).
+  - Recorte do `imagens_ea.py ... :camadas:<nome>`: `{fonte: 'f_<nome>_obj', alinha: true}` volta sozinho para o lugar dele sobre
+    `fundo: 'f_<nome>_fundo'`. Quadro fechado (TV, entrevista): `tam: .55` diminui e apoia na base da tela.
+  - Objetos-metáfora que sobem por trás (o caixão da referência): camada `atras: true` com
+    `entra: {k: 'baixo', t: c => c.w(...) - .42, dist: 900, d: .7}`. O objeto sobe escondido atrás do corpo e aparece por cima da cabeça NA
+    palavra (com a curva do AE, os últimos 3% do caminho levam ~1/4 do tempo; entrando na própria palavra, ele só aparece depois dela).
+  - `pb: c => tempo` vira P&B em 0,25 s (a etiqueta escurece junto) e dá um boom. `cor`: `'frio'|'quente'|'verde'|'vermelho'|'pb'|'arquivo'` ou filtro CSS.
+  - `cam: c => [[t, {x, y, z, r}, 'curva'], ...]` (curvas do AE `entra` 33/100 padrão, `sai` 100/1,7, `ae` 75/75, `rapida` 2/100; e
+    `arranque`, `suave`, `linear`, `saida` acelera, `seco`; do motor golpe, `golpe` e `mola`).
+  - `flash: c => t` e `onda: c => t` (Flash + Wave V2 do projeto, numa palavra de virada DENTRO da cena; valem também em `jornal`,
+    `parede` e `salaTV`), `posterize: 16` (a cena anda a 16 q/s, como a TV e a "história" do projeto).
+  - `fechadura: {t, k0: 6.5, k: 1.1, cy}`: a cena passa a ser vista pelo buraco da fechadura (sombra interna e luz na borda).
+- **`digitado(beats, [[texto, t], ...], {s, nota, ritmo})`**: fundo escuro com riscos de película, texto em sans condensada branca
+  digitado letra a letra (tique de tecla), cursor piscando e sublinhado vermelho crescendo; câmera derivando. Só para o que a fala diz:
+  datas, anos, números, "nove meses depois". `nota` = contexto/fonte em letra pequena (ex.: a correção de um dado).
+- **`palavras(beats, {so, s, primeira, rot0, z0, fundo: 'planta'|'quadriculado'})`**: uma palavra falada por vez, em Playfair itálica com
+  sombra, sobre a planta azul cuja grade é redesenhada a cada quadro com distorção de lente. O plano gira de 26° para 0° e recua.
+  `so` = só as palavras fortes (5–8 por frase; a referência mostra ~1 a cada 0,35 s).
+- **`pilha(beats, {s, so})`**: palavras empilhando no verde-escuro (a nova entra EM CIMA, a coluna desce e as de baixo borram). Para a virada
+  ("Mas houve uma reviravolta", "E a história é sombria", "sem botar um real na mesa").
+- **`letras3D(beats, [[texto, t, cor, tamanho], ...])`**: letras extrudadas (amarelo/vermelho/azul) digitadas com estalo no papel quadriculado
+  com sombra de janela. Para a frase de efeito e o CTA. Tamanhos 90–124 px: cada linha cabe em ~950 px.
+- **`jornal(beats, {veiculo | logo, linhaTopo, titulo, linha, autor, corpo, foto, moldura, legenda, marca, circulo, soco, fundo, entra, sai})`**:
+  matéria REAL impressa (título, veículo, data, autor e trecho de verdade) em papel envelhecido.
+  - `fundo: 'mesa'` (madeira quente, gira) ou `'tabuas'` (escuras, em pé) ou `'maos'` (precisa do asset `maos_jornal`).
+  - `marca: [[t, 'trecho exato', 'amarelo'|'verde']]` passa o marca-texto no tempo da palavra; `circulo: [t, 'trecho']` desenha o círculo
+    vermelho à mão; `soco: t` dá o punch-in seco; `entra: 'voa'|'sobe'|'fixa'`; `sai: t` derruba o papel.
+  - Página longa: divida em dois planos (o segundo com `entra: 'fixa'`, `cam` perto do parágrafo e as marcas antigas com t = -1).
+  - Regra 5: o plano que mostra o trecho marcado tem a câmera (`cam`) centrada nele e perto o bastante para a letra ficar ≥ ~44 px.
+- **`parede(beats, [4 fotos], {ts, flash, sai, pos, dEntra, posterize, rampa})`**: a "07 History" do projeto. A câmera começa longe
+  (`rampa` padrão `{zIn: -.45, rIn: 0, eIn: EA_RAPIDA}`) sobre a parede riscada (3×3 cópias espelhadas, nunca mostra borda), as fotos P&B
+  com borda branca voam dos 4 cantos para a grade 2×2 (`dEntra` 1,6 s) e chegam ~0,5 s depois do corte, como no original; flash de câmera
+  (2 quadros) com disparo; raios de luz; o grupo sai girando. Para "na história", listas, exemplos, "as empresas dele".
+- **`salaTV(beats, {sala: 'f_tv_familia', tela: [1147, 1280, 1387, 1486], conteudo: 'apresentador'|'clip:x'|'f_x', cor: 'verde', mergulho})`**:
+  sala real (foto de 1958, domínio público) com o conteúdo dentro da TV (efeito de tubo). Começa colada na TV, recua mostrando a família e
+  no `mergulho` empurra de volta para dentro. Para "a notícia se espalhou", "o Brasil inteiro viu" e para o apresentador.
+- **`presEA(beats, {z, fy, punch, tPunch, etiqueta, fechadura})`**: apresentador limpo em tela cheia (sem malha, grão nem cor do formato),
+  punch-in seco numa palavra; `etiqueta: {txt: 'Fernando Miranda'}` na 1ª aparição.
+- **`perfilEA(beats, {perfil: 'perfil_<usuario>', usuario, tDigita, tSeguir})`**: final com o perfil REAL num monitor antigo, a barra de endereço
+  digitando o @ e a batida de 81 BPM (o CTA da referência). Antes dele, `letras3D` com a frase do "siga".
+- **Passagens:** corte seco (padrão; a trilha põe o swish e o motor o borrão de ±0,167 s), `tr: 'ea:sobe'` (o plano novo sobe como cartão
+  de canto arredondado e empurra o anterior), `tr: 'gl:sdf-iris', trCor: '#ff3b30', trDur: .45` (íris vermelha, o CC Light Wipe da entrevista),
+  `tr: 'ea:matte:<nome>'` (matte do projeto: `center` 0,53 s, `center_liquid` 0,77, `round` 0,57, `three_liquid` 0,53, `up_1` 0,27,
+  `up_2` 0,3, `ink_lr` 1,3, `ink_lr_2` 0,93, `ink_ud_digonal` 1,27, `ink_spot` 2,3; `trDur` muda), `tr: 'ea:wipe'` (Linear Wipe de baixo
+  para cima com borda suave, 0,55 s; `trAng` gira) e saídas pela câmera (`'saida'` na última chave). Na matte e no wipe a cena velha segue
+  viva por baixo e a saída da câmera dela termina junto com a passagem.
+- **Energia (em toda cena, automático) = o rig do projeto:** `eaRampa` faz a entrada (de perto, curva 33%→100%, ~1,3 s, girando ±5°),
+  o recuo (primeiros 55% do vídeo) ou a aproximação (depois) contínuos, a saída acelerando (curva 100%→1,7%, último ~1 s: recua para .55
+  girando 14° e descendo; depois dos 55%, mergulha para 1,9) e dois `wiggle(1,15)` na posição + z e giro. Por cena `rampa: false` ou
+  `{zIn (negativo = começa longe), yIn, xIn, tin, eIn, rIn, zOut, rOut, yOut, tout, wig, deriva}`; `window.EA_ENERGIA` escala tudo.
+  Nas cenas de tipografia, `eaBorraCena` borra a chegada.
+- **Vida e brilho:** `socos: c => [tempos]` (punch-in de 8,5% com golpe na trilha), `drop: true | t` (808 da trilha), `luz: 'frio'|'quente'|
+  'verde'|'vermelho'|false`, `poeira: 0..1` (partículas de luz), `vida3d` (recorte respirando; liga sozinho nos recortes que entram),
+  `leaks`/`flashes` (do motor). Recorte centrado: `{alinha: true, tam: .7, topo: 470, dx_}` (a base do recorte some em degradê a partir
+  de 78%, `fade` muda ou `false` desliga, para a borda reta do quadro cortado não aparecer quando a câmera recua).
+- **`vida` de cada camada (os wiggles do projeto):** padrão = objeto solto (`wiggle(.5,15)` + giro `wiggle(1,3)`), `'gente'` (`wiggle(3,10)` no Y),
+  `'palavra'` (`wiggle(3,25)`), `'frente'` (`wiggle(2,15)`), número (fator) ou `false` (parada: fundos, telas).
+
+## O roteiro decide a cena (tabela de tradução fala → cena)
+| na fala | cena | exemplo da demo |
+|---|---|---|
+| apresenta a pessoa da história ("esse cara", o nome) | `mundo` com o recorte entrando da câmera + etiqueta com o nome | "Esse cara era dono…" → Mansur + "Ricardo Mansur" |
+| o que a pessoa tem ou faz | objetos sobem por trás dela; máscara de pincel troca o fundo | Mesbla e Mappin sobem; no "banco", o cofre |
+| morte, queda, negação, "não" | vira P&B (`pb`), moldura vermelha | — |
+| data, ano, número, tempo | `digitado` | "180 LOJAS / 28 MIL FUNCIONÁRIOS", "NOVE MESES DEPOIS" |
+| fato com fonte (matéria, documento) | `jornal` com o trecho marcado na palavra | "detetive" → "investigadores privados" |
+| frase de efeito curta | `palavras` (planta azul) ou `letras3D` | "Ficou com as duas maiores redes…" |
+| virada | `pilha` | "sem botar um real na mesa." |
+| pergunta ("quem pagava?", "o que matou?") | `fechadura` | o cofre na luz vermelha |
+| controle, manipulação | mão de marionete da biblioteca | "Controlava o fundo de pensão…" |
+| "na história", lista de casos, "as empresas dele" | `parede` | as lojas em P&B, flash no "empresas" |
+| a notícia se espalha, opinião, "vou explicar" | `salaTV` (apresentador ou clipe na TV) | Fernando na TV de 1958 |
+| fecho, siga | `letras3D` + `perfilEA` | — |
+
+Cada imagem mostra a palavra dita (sem título dizendo o que é a foto: regra do Felipe). **Passagens também saem do roteiro, nunca de uma cota**
+(regra do Felipe de 31/10): push vertical quando o assunto "sobe" ou continua; íris quando entra alguém de surpresa; corte seco + boom na
+virada de mundo; mergulho na TV quando a próxima cena é "dentro" da notícia.
+
+## Material: de onde vêm as imagens (Qwen local primeiro; Higgsfield só se o Qwen não der conta)
+A referência é 100% imagem gerada. Para os vídeos do Felipe, na ordem:
+1. **Pessoa real citada:** foto ou vídeo REAL (Commons, Agência Brasil, quadro de telejornal com crédito na tela e no fontes.md).
+   `imagens_ea.py FOTO:camadas:<nome>` separa o personagem do fundo da mesma foto (o recorte entra da câmera sobre o próprio fundo, como
+   na referência). Confira `out/camadas_<nome>.jpg`: cabelo, mãos e ombros inteiros; recorte ruim = use a foto inteira, sem recorte.
+   Movimento do personagem = trecho de vídeo real (`clipes.py` + camada `fonte: 'clip:<nome>'`). **Nunca vídeo gerado de pessoa real.**
+2. **Lugares, prédios, objetos:** fotos reais (Commons) com `imagens_ea.py :foto` ou `:pb`; logos com `:logo`.
+3. **Metáforas:** biblioteca do kit (`biblioteca/recortes/*.webp`: cofre, marionete, dinheiro, martelo, cadeado, xadrez…), copiadas como `b_<nome>.webp`.
+4. **Imagem gerada: Qwen local primeiro** (`gerar_qwen.py`, `Kit_Edicao_Vox_v2/guias/prompts_imagens.md` §2). Serve para cenas anônimas sem rosto:
+   multidão de costas, mãos segurando o jornal (asset `maos_jornal`, com `"recorte": true` = PNG com transparência), sala, mesa com objetos.
+   O Higgsfield fica só para a imagem que o Qwen não der conta e para o **vídeo** gerado dessas cenas (Kling), que dá o gesto dos personagens anônimos.
+5. **Texturas:** procedurais no `componentes.js` (escuro riscado, parede verde, planta azul, papel quadriculado, papel de jornal). 0 crédito.
+
+## Apresentador (a referência não tem)
+Com gravação ou HeyGen: **8–12 aparições num vídeo de ~2:30** (proporcional), 2–4 s cada (gravação real até 5 s), nunca duas seguidas,
+nas perguntas, opiniões e viradas; só em janela em que ele olha para a câmera (confira quadro a quadro). Formas: `presEA` (tela cheia
+limpa, etiqueta com o nome na 1ª vez), `salaTV` com `conteudo: 'apresentador'` (dentro da TV) e a íris vermelha para entrar de surpresa.
+O apresentador fica LIMPO (regra do Felipe): sem malha, grão, cor do formato nem aproximação lenta. Sem apresentador:
+`preparar_earn.py --sem-apresentador` (faceless, como a referência).
+
+## Passo a passo
+1. **Projeto** (raiz do kit): `pipeline.py preparar <nome> "C:/.../video.mp4"` (ou o mp3 da ElevenLabs). Corte e beats como no kit
+   (beats curtos, quebrando antes de nomes, datas, valores e perguntas).
+2. **Formato:** `python <esta pasta>/preparar_earn.py <nome> --prefixo xx [--real | --avatar | --sem-apresentador] [--sem-trilha]`.
+3. **Pesquisa:** cada fato, número e data com a fonte. Manchete = matéria real (título, veículo, data, trecho). O que estiver errado na
+   fala NÃO vai para `digitado`, `jornal` nem `letras3D` (a nota pequena do `digitado` corrige o contexto, como na demo).
+4. **Plano de cenas** (tabela `cena | beats | fala | componente | material | passagem e por quê | som`): 20–34 cortes/min, nenhuma cena > 5 s,
+   um evento a cada ~0,65 s, 1–2 mundos por pessoa citada, 1 `digitado` por data/número forte, 1–2 `jornal` por minuto, 1 `palavras`
+   e 1 `pilha` por minuto no máximo, `parede`/`salaTV`/`fechadura` onde a fala pedir. Marque antes as aparições do apresentador.
+5. **Material:** `export MSYS_NO_PATHCONV=1`; `imagens_ea.py` (fotos, P&B, camadas, logos), biblioteca, trechos (`ferramentas/baixar_trechos.py` +
+   `clipes.py`), depois `make_assets.py` (mantém `ox/oy/W0/H0` das camadas).
+6. **Cenas** em `work/xx_b.js`… (copie de `cenas_exemplo.js`), com o comentário `// Sn — "fala"`. Depois `python montar.py <nome> xx`.
+7. **Prévias:** `python previas.py <nome> --pontos 3` (ou `--tempos 2.4,12.6`); abra `out/pv/cenas_*.jpg`. Mande a folha ao Felipe.
+8. **Fechar:** `pipeline.py fechar <nome> NOME --destino "H:\Downloads\Edicoes_Claude"` (o etapas.json já aponta montar e trilha desta skill).
+9. **Conferir:** `python medir.py <nome>` (todas as metas "ok": movimento, quadros parados, picos de mudança, cor, centralização; a linha
+   "assunto fora do centro em (s)" aponta os planos a corrigir), `python ritmo.py <nome>` (nenhum plano > 5 s, nenhum trecho parado),
+   as emendas do qa_lint (`out/qa_emendas_*.jpg`) e todas as `out/qa_*.jpg`.
+10. **Mensagem final** (português, curta): arquivos, créditos (0 se só fotos reais), avisos de checagem com fonte, **Fontes:** matérias
+    (veículo e data), fotos (autor e licença), trechos (canal e data).
+
+## Teste (31/10/2026)
+`projetos/teste_earn` (prefixo `ea`): corte "Rei do Varejo" do Fernando (fernando8) até o B28, quadros por junção (`work/frames`,
+`work/frames_largos` → fernando8; remova só com `cmd //c rmdir`), áudio e timing cortados em 40,07 s. 17 cenas, 2 aparições do Fernando
+(TV de 1958 e tela cheia com etiqueta), 0 créditos. `fechar` em 1m16s (render de 1.202 quadros em 29 s com 12 processos), −14 LUFS,
+checa_fala sem palavra perdida, qa_lint 0 problema. `ritmo.py`: 32,9 trocas/min, plano mediano 1,67 s, o mais longo 4,2 s, nenhum trecho
+parado. Malha medida no vídeo: período 6,00 px, 18 níveis no cinza médio (referência 10–26). Entrega: `H:\Downloads\Edicoes_Claude\_Testes e demos\TesteEarn\TesteEarn_demo40s_v1_tiktok.mp4`
+(28,5 MB) + `_MASTER.mp4`.
+- **v1 → v6 (mesmo dia, correções do Felipe: "o original é muito mais dinâmico… personagens em constante movimento… cores saltam… trilha
+  melhor" e "o personagem principal fica destacado no centro"):** medido com `medir.py` contra a referência. Fluxo médio 0,80 → 1,16 px/q
+  (ref. 1,48), quadros quase parados 42% → 13% (ref. 15%), picos de mudança 76 → 126/min (ref. 183), saturação .31 → .41, assunto a 1,3%
+  do meio na mediana com 93% dos quadros centrados (ref. 1,5% e 95%), cama de 19 dB → 5,5 dB abaixo da voz com 3 drops de 808, e o
+  Mansur se mexendo com vídeo real (trechos do Jornal da Band). Entrega: `H:\Downloads\Edicoes_Claude\_Testes e demos\TesteEarn\TesteEarn_demo40s_v6_tiktok.mp4` + `_MASTER.mp4`.
+- **v7–v9 (mesmo dia, depois do projeto After Effects):** motor v3 com o rig de câmera, as curvas e os wiggles do .aep, borrão em cada corte,
+  grade e ruído do projeto, flash + onda no "banco", Posterize 16 na TV e na parede, matte `center` na fechadura, `ea:wipe` no "NOVE MESES
+  DEPOIS", parede com a câmera vindo de longe. `medir.py`: fluxo 1,30 px/q (ref. 1,48), 12% parados (ref. 15%), 202 picos/min (ref. 183),
+  saturação .43, assunto a 1,5% do meio com 95% dos quadros centrados. Render de 1.202 quadros em ~100 s, −14,0 LUFS, checa_fala 0.
+  v8 corrigiu o wipe (a borda começava fora da tela) e v9 o tempo dos logos que sobem atrás do Mansur. Entrega final:
+  `H:\Downloads\Edicoes_Claude\_Testes e demos\TesteEarn\TesteEarn_demo40s_v9_tiktok.mp4` + `_MASTER.mp4`.
+
+- **Motor golpe (02/11, janela 15,55–26,6 s: Mansur + Mappin, relógio, "NOVE MESES DEPOIS", verbete da Mesbla em dois planos):** cenas
+  S7–S11 com `golpes` (as cenas de antes em `work/ea_b.js.bak_antes_golpe`). `medir_motion.py` na mesma janela, A (v9) → B: metade do
+  caminho 64% → 36% (ref. cientista 36%), velocidade 14,4 → 11,7 px/q (ref. 11,1), câmera parada 2% → 2% (ref. 10%). Nos quadros: o
+  verbete passou de página inteira pequena (corpo ilegível) a trecho marcado centrado com letra ~50 px, o 350 sem cortar na borda, o
+  Mappin nascendo atrás do Mansur com ele centrado e nítido, borrão só nos chicotes. Lado a lado: `H:\Downloads\Edicoes_Claude\_Testes e demos\TesteMotion\TesteMotion_earn_AB_v1.mp4`.
+
+## Armadilhas (vistas no teste)
+- **Céu estourado na foto de fundo** vira um retângulo cinza chapado quando a câmera começa perto (zoom 1,2+ e foco 12). Enquadre pelo
+  lado dos prédios (`fundoOp.fx` .24) ou escolha outra foto.
+- **Malha × peso do tiktok:** a malha de 6 px é detalhe fino; 40 s deram 28,5 MB a 5.600 kbps. Em vídeo longo o entregar baixa o
+  bitrate; se a malha tremer ou fizer moiré no tiktok, use `S.malha` .3 (ou `malha: .3` no `mundo`).
+- **Filtro de cor fixo numa camada some** se for posto em `inner.style.filter`: o foco/borrão reescreve o filtro a cada quadro. Use `base`.
+- **Quadro de TV recortado fica enorme** (a pessoa enche o quadro 4:3). `tam: .55` diminui e apoia na base; os objetos que sobem por trás
+  vão para cima/lados da cabeça (x 250 e 830, y 520–640), senão somem atrás dela.
+- **Foto de paisagem com `fy` longe de .5** deixa faixa preta quando a câmera recua. Mantenha `fy` .5 e mova a câmera (`cam` y), ou aumente `folga`.
+- **Letras 3D acima de ~124 px** passam da largura em linhas de 11 letras.
+- **Marca/círculo com t = -1** (marca já feita no plano anterior) não toca som; com t ≥ 0 toca o marcador.
+- **Prévia não tem borrão de movimento** (ele depende do quadro anterior). Julgue o movimento no vídeo.
+- **Demo parcial:** corte o `work/cut_audio.wav` e o `render/timing.js` no fim do último beat (como em `teste_earn`), senão a última cena
+  estica até o fim do áudio.
+- **`montar.py` só conta cenas no começo da linha** (as definições dos componentes ficam indentadas).
+- **`mask-image` com arquivo do disco não funciona** (o Chromium bloqueia por CORS em file://): as mattes vão embutidas como data: URL em
+  `render/eamattes.js` (o `preparar_earn.py` gera), aquecidas em elementos de 2 px, e cada quadro espera dois `requestAnimationFrame`
+  (o lint_cenas avisa dessa linha; é de propósito).
+- **Câmera começando longe ou recuando muito mostra a borda** de fundo pequeno: use camada `cobre` (já vem com as cópias espelhadas) ou
+  um fundo bem maior que a tela (o cofre da demo tem 4600×7000).
+- **Sacudida da onda abria faixa** no alto: o palco tem `overflow:hidden`; o motor cresce o palco junto com a sacudida (o Motion Tile do AE espelha).
+- **Pincel (`troca`) perto do fim da cena:** o raio é medido na tela, então cobre os cantos mesmo com a câmera recuando na saída.
+- **Matte/wipe e a saída da câmera:** a cena velha continua rodando por baixo da passagem (`_trProx`); sem isso ela congelava borrada no meio da matte.
+
+- **Motor golpe + `salaTV` com `mergulho`:** a saída em chicote soma ao mergulho; nessas cenas use `golpes: {sai: false}` ou `planos` próprios.
+- **`parede` com golpes:** a chegada automática começa PERTO (`chega.z` 1,45), o contrário da câmera vindo de longe da "07 History";
+  passe `chega: {z: .6}` ou `planos` para manter a câmera vindo de longe.
+- **`alvo` de trecho que quebra linha** centra na coluna inteira (a união das linhas), não no começo do trecho.
+- **`pilha`** não tem `cam` própria (a câmera é calculada no update) e ignora `golpes`.
+
+## Checklist antes de entregar
+- [ ] `medir.py`: tudo "ok" (assunto centrado ≤ 2,5% do meio e ≥ 90% dos quadros; fluxo ≥ 1,2; ≤ 15% parados; ≥ 120 picos/min).
+- [ ] `ritmo.py`: nenhum plano > 5 s, nenhum trecho parado; câmera andando em todos os planos.
+- [ ] Motor golpe nas cenas (`golpes`): chicotes na palavra, `medir_motion.py` com metade do caminho em 28–45%, texto parado ≥ 1 s, borrão só no pico.
+- [ ] Pessoa citada = foto/vídeo REAL com etiqueta do nome quando a fala não diz o nome; rosto real gerado por IA só com OK do Felipe (pergunte antes).
+- [ ] Matérias reais (título, veículo, data, trecho), marca-texto na palavra dita; número na tela = dado conferido.
+- [ ] Todo texto que importa é LEGÍVEL no celular (≥ ~44 px, parado ≥ 1 s, sem borrão por cima) e tem UM foco destacado por vez
+      (marca-texto/círculo + câmera centrada no trecho, resto escurecido ou desfocado). Confira nas prévias em tamanho real.
+- [ ] Sem legenda corrida; texto só em tipografia, jornal e etiqueta; nenhum título dizendo o que é a foto.
+- [ ] Malha de 6 px nas imagens; apresentador limpo; P&B só na virada negativa; um mundo de cor por cena.
+- [ ] Apresentador (se houver): 8–12 por 2:30, 2–4 s, olhando a câmera, nunca seguidas.
+- [ ] Passagens escolhidas pela fala (corte seco + borrão por padrão; matte, wipe, íris ou `ea:sobe` só onde o roteiro pede).
+- [ ] Som: cama grave, swish nos cortes, boom nas viradas, −14 LUFS, checa_fala sem palavra perdida.
+- [ ] Final com o perfil REAL de quem fala. Versão `_vN` em `entrega/` e `H:\Downloads\Edicoes_Claude`; fontes com links.

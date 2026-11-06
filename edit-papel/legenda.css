@@ -1,0 +1,12 @@
+/* ==== edit-papel: fontes, legenda (modo por cena em S.cap), grão e vinheta controlados pela cena; sem barra de progresso ==== */
+@font-face { font-family: Inter; src: url(fonts/inter-latin-400-normal.woff2); font-weight: 400; }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-600-normal.woff2); font-weight: 600; }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-900-normal.woff2); font-weight: 900; }
+@font-face { font-family: InkFree; src: url(fonts/InkFree.ttf); }
+#cap { position: absolute; z-index: 5; left: 540px; top: 1430px; transform: translate(-50%, -50%); white-space: nowrap; font-family: Inter;
+  font-weight: 600; font-size: 54px; letter-spacing: -.035em; line-height: 1.02; color: #fff; text-transform: none; background: none !important;
+  box-shadow: none !important; padding: 0 !important; opacity: 0; }
+#cap span { padding: 0; border-radius: 0; }
+#prog { display: none !important; }
+#grain { display: block !important; position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; mix-blend-mode: overlay; background-size: 256px 256px; }
+#vig { opacity: 0; background: radial-gradient(ellipse 82% 70% at 50% 44%, rgba(0,0,0,0) 52%, rgba(0,0,0,.55) 100%) !important; }

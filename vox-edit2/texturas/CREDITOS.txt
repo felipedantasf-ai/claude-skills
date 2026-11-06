@@ -1,0 +1,15 @@
+Texturas e sequências do formato vox-edit2 (copiadas para todo projeto pelo preparar_edit2.py)
+
+Vindos do projeto After Effects "High heels: from the battlefield to fashion" (EarnEdits), baixado pelo Felipe em 31/10/2026:
+  e2_escuro1..4, e2_escuro_liso, e2_escuro_riscado, e2_escuro_luz   texturas escuras (45/60/90/97.jpg, D2 Texture 6/39, 02.jpg)
+  e2_pergaminho, e2_branco, e2_papel_preto, e2_quadriculado (Texturelabs Paper 300XL), e2_pardo (SHIIVAstuff), e2_cinza (D2 Texture 38)
+  e2_poeira (Dirty-Surface-Texture-01), e2_riscos (sss.jpg)          sobreposições em screen
+  e2_folha, e2_folha_rasgada, e2_moldura, e2_polaroids, e2_cantos   folhas e molduras
+  e2_tinta1..3, e2_tinta_borda (ink splats @SHIIVAstuff)            manchas de tinta
+  kit/<peça>/NN.webp   14 sequências do Atom "Collage Kit Constructor" (cortina_1/2, tira_1..8, fogo_1/2, nuvem_1/2), 760 px, alfa
+  ferve/<nome>/NN.jpg  7 fundos pré-renderizados do RTFX "Backgrounds - Grunge" (concrete01/02/03/05, dirt03/04, paper01), 1080x1920
+São produtos de terceiros (EarnEdits, Atom, RTFX, SHIIVAstuff, Texturelabs). Uso: nos vídeos do Felipe. Não redistribuir a skill fora da
+equipe sem conferir a licença de cada um.
+
+t_papel.jpg, t_pergaminho.jpg   texturas da vox editorial (geradas, projetos do Felipe)
+perfil_avatar.png, perfil_texto.png   print REAL do perfil @felipedantasf (troque pelo do apresentador quando for outro)

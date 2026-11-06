@@ -1,0 +1,8 @@
+/* ==== edit-parallax3d: sem legenda corrida nem barra (a frase em serifa é o texto); grão de filme e vinheta fortes ==== */
+@font-face { font-family: P3Mono; src: local('Consolas'), local('Cascadia Mono'), local('Courier New'); }
+#cap { display: none !important; }
+#prog { display: none !important; }
+#grain { display: block !important; position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: .2; mix-blend-mode: overlay; background-size: 256px 256px; }
+#vig { z-index: 4; opacity: .7; background: radial-gradient(ellipse 80% 66% at 50% 48%, rgba(0,0,0,0) 52%, rgba(0,0,0,.72) 100%) !important; }
+.sroot { background: #000; }
+.sbg { display: none !important; }

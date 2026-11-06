@@ -1,0 +1,12 @@
+/* ==== edit-investigativa: fontes, legenda de UMA palavra em serifa condensada, grão e vinheta por cena, sem barra de progresso ==== */
+@font-face { font-family: TimesInv; src: url(fonts/TimesInv.ttf); }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-400-normal.woff2); font-weight: 400; }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-500-normal.woff2); font-weight: 500; }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-600-normal.woff2); font-weight: 600; }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-700-normal.woff2); font-weight: 700; }
+#cap { position: absolute; z-index: 5; left: 540px; top: 1371px; transform: translate(-50%, -50%); white-space: nowrap; color: #e6e5e8;
+  background: none !important; box-shadow: none !important; padding: 0 !important; opacity: 0; text-transform: none; }
+#cap span { padding: 0; border-radius: 0; }
+#prog { display: none !important; }
+#grain { display: block !important; position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; mix-blend-mode: overlay; background-size: 256px 256px; }
+#vig { opacity: 0; background: radial-gradient(ellipse 80% 66% at 50% 46%, rgba(0,0,0,0) 46%, rgba(0,0,0,.72) 100%) !important; }
