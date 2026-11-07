@@ -31,6 +31,16 @@ O Felipe quer o método de extração de alta qualidade replicado: material novo
 | `safezone_organica.py` | safe zone do Reels/TikTok (`--dom <projeto>` mede a caixa exata do nosso texto) |
 | `cenas_exemplo.js` | exemplo completo (demo da Lisa Su) |
 
+## Ritmo do Felipe (08/11/2026): vale por cima da receita
+
+O Felipe assistiu o JackDaniels_TNG_v1 (75 cortes/min, como na referência) e pediu mais calma: "textos no fundo vermelho quase não dá pra ver", "cortes rápidos demais, quase não dá pra ver a imagem" e "os efeitos 3D estão ruins, só o zoom já era suficiente". Por isso, em todo vídeo deste formato:
+- **Plano mínimo de ~0,65 s**, com mediana de ~1,0–1,1 s (~55 cortes/min). A régua do `montar.py` vai acusar FORA, e isso é o esperado.
+- **Cartão vermelho ou branco segura a frase inteira**, por ≥ 0,9 s (1–1,5 s). Cartão de 0,3 s com uma palavra sai.
+- **Montagem-relâmpago a 1/4 s por imagem** (`passos: [3, …]`), só com fotos. Vídeo dentro de montagem vira quadro parado e reprova no `clipe_parado`.
+- **Imagem gerada (tipo `ia:` do jd_tng) só com zoom lento rumo ao assunto**, sem 2.5D recortado (parallax de camadas) e sem deslize lateral. A foto real continua deslizando como na receita.
+- **Apresentador FALANDO na tela anda a 24 q/s** (JackDaniels_TNG v2, "a fala tá desconectada com o áudio e a legenda"): a 12 a boca parece dublada fora de tempo, mesmo com a sincronia certa. No `jt_a.js` do jd_tng, `tngLiso(t)` marca os planos `clip:fern*` (ou `{liso: true}`) e o `TNG_CHAVE`/`render` deixam de quantizar neles. O B-roll e os clipes mudos do personagem seguem a 12.
+- **Legenda acende no início falado da palavra**, no degrau mais perto (`TNG.revela = 0`, arredondado, não `ceil`). O +0,10 s com `ceil` atrasava até 0,18 s e soava fora de sincronia.
+
 ## A receita em 12 linhas (números em `ANALISE_REFERENCIA.md`)
 
 1. **Bloco de legenda = plano.** Corte seco na 1ª palavra do bloco (2–3 palavras), ~75 cortes reais por minuto, plano mediano de 0,75 s. O gancho é mais rápido (~98/min) e o fim mais lento (~57/min).
