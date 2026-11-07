@@ -24,8 +24,15 @@ Repositório **privado** com as skills de edição (pasta `~/.claude/skills`).
 
 Rode ATUALIZAR antes de começar e SALVAR depois de mexer nas skills, para os dois PCs não divergirem.
 
-## Atenção
+## O kit (obrigatório para editar)
 
-12 skills chamam o **Kit_Edicao_Vox_v2** em `H:\` (scripts, biblioteca, modelos, .venv).
-Sem o kit no outro PC, o Claude lê e entende as skills, mas não consegue renderizar.
-O kit é grande demais para o GitHub — copie pelo HD externo/Drive (ver `H:\Edição Claude\migracao_pc_novo`).
+12 skills chamam o **Kit_Edicao_Vox_v2** em `H:\Edição Claude\` (scripts, biblioteca, modelos, ambientes Python).
+Ele fica no Google Drive (`Claude Code/Kit_Edicao_Vox_v2`, ~17 GB, sem os projetos).
+
+No computador novo, depois de clonar as skills, clique duas vezes em **BAIXAR_KIT.bat**. Ele:
+instala Git/uv/FFmpeg/Node/rclone, cria `H:` se o PC não tiver (aponta para `C:\H`), pede o login do Google,
+baixa o kit, recria `.venv`, `.venv_audio` e `.venv_ia` (CUDA 12.8) e confere tudo. Rodar de novo baixa só o que mudou.
+
+Não vêm por aqui: ComfyUI/Qwen (`H:\ComfyUI`, imagens locais) e MFA (`C:\mfa`).
+
+No PC principal, depois de mudar o kit, clique em `H:\Edição Claude\Kit_Edicao_Vox_v2\SUBIR_KIT_DRIVE.bat` (ou peça ao Claude: "sobe o kit pro Drive").

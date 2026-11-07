@@ -23,8 +23,9 @@ if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 KIT = os.environ.get("VOX_KIT", "H:/Edição Claude/Kit_Edicao_Vox_v2")
 YTDLP = os.path.join(KIT, ".venv", "Scripts", "yt-dlp.exe")
-F_HD = "bv*[height<=2160][protocol=https]/bv*[protocol=https]/bv*"
-SORT = "res:2160,hdr:sdr,fps"
+_MR = os.environ.get("TNG_MAXRES", "2160")                     # TNG_MAXRES=1080: mais rápido (pedido do Felipe, 06/11)
+F_HD = f"bv*[height<={_MR}][protocol=https]/bv*[protocol=https]/bv*"
+SORT = f"res:{_MR},hdr:sdr,fps"
 
 
 def projeto(p):
