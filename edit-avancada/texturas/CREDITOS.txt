@@ -1,0 +1,12 @@
+Texturas da skill edit-avancada (1080x1920, tons de cinza), feitas a partir dos arquivos dos projetos da EarnEdits que o Felipe comprou
+(07/11/2026). Uso: só nos vídeos do Felipe e dos clientes dele (mesma licença dos pacotes originais). Não redistribuir soltas.
+
+av_reticula.jpg  "detail halftone.jpg" do pacote Texture+Sauce (projeto Walkman/Bryan Johnson), recorte 1:1 (passo ~6 px). Overlay.
+av_grunge.jpg    "Texturelabs_Grunge_353L.jpg" do mesmo pacote, girada e com níveis puxados (poeira clara no preto). Screen.
+av_papel.jpg     "Texturelabs_Paper_245L.jpg" do projeto Discord, miolo do papel centrado em cinza 128. Soft light.
+av_linha.jpg     "Linear Horizontal.jpg" do projeto Stripe x OpenRouter, recorte 1:1 (linhas de ~16 px). Overlay com o y tremendo.
+av_tex03.jpg     "Texture 03.jpg" do projeto Stripe, níveis puxados para o escuro. Screen (look premium).
+av_janela.jpg    luz de janela do projetos/teste_russia (tx_janela.jpg). Multiply.
+
+Texturelabs (texturelabs.org) permite uso comercial das texturas grátis; os demais arquivos vieram dentro dos projetos pagos.
+Gerado por scratchpad/scripts/texturas_av.py (refaça a partir dos zips originais se precisar de outra resolução).

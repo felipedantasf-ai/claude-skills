@@ -1,0 +1,11 @@
+/* ==== edit-avancada (entra depois do estilo.css da edit-earn) ==== */
+@font-face { font-family: Inter; src: url(fonts/inter-latin-400-normal.woff2); font-weight: 400; }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-600-normal.woff2); font-weight: 600; }
+@font-face { font-family: Inter; src: url(fonts/inter-latin-900-normal.woff2); font-weight: 900; }
+@font-face { font-family: Franklin; src: url(fonts/FranklinM.ttf); }
+@font-face { font-family: Franklin; src: url(fonts/FranklinMI.ttf); font-style: italic; }
+@font-face { font-family: FranklinCond; src: url(fonts/FranklinCond.ttf); }
+#cap { display: none !important; }
+#prog { display: none !important; }
+#grain { opacity: 0 !important; }
+#vig { opacity: 0; background: radial-gradient(ellipse 80% 66% at 50% 46%, rgba(0,0,0,0) 48%, rgba(0,0,0,.78) 100%) !important; }
